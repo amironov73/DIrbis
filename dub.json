@@ -1,0 +1,9 @@
+{
+	"authors": [
+		"Alexey Mironov"
+	],
+	"copyright": "Copyright © 2019, Alexey Mironov",
+	"description": "A minimal D application.",
+	"license": "MIT",
+	"name": "irbis"
+}
