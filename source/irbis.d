@@ -5,7 +5,7 @@ import std.socket;
 
 //==================================================================
 //
-// Утилитные функции
+// Utility functions
 
 ubyte[] toAnsi(string text)
 {
