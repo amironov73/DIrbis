@@ -11,7 +11,6 @@ init:
 
 install:
   - choco install dmd
-  - choco install dub
   - C:\D\dmd2\windows\bin\dub.exe --version
 
 build_script:
