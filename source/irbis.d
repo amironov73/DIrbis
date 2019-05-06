@@ -2,6 +2,7 @@ import std.stdio;
 import std.encoding: transcode, Windows1251String;
 import std.random: uniform;
 import std.socket;
+import std.string;
 
 //==================================================================
 //
@@ -31,6 +32,12 @@ string fromUtf(ubyte[] text)
 {
     return cast(string)text;
 }
+
+bool sameString(string s1, string s2)
+{
+    return icmp(s1, s2) == 0;
+}
+
 
 //==================================================================
 
@@ -71,6 +78,83 @@ final class MarcRecord
     int versionNumber;
     int status;
     RecordField[] fields;
+}
+
+//==================================================================
+
+final class RawRecord
+{
+    string database;
+    int mfn;
+    int versionNumber;
+    int status;
+    string[] fields;
+}
+
+//==================================================================
+
+final class FoundLine
+{
+    bool materialized;
+    int serialNumber;
+    int mfn;
+    bool selected;
+    string description;
+    string sort;
+}
+
+//==================================================================
+
+final class MenuEntry
+{
+    string code;
+    string comment;
+}
+
+//==================================================================
+
+final class MenuFile
+{
+    MenuEntry[] entries;
+}
+
+//==================================================================
+
+final class IniLine
+{
+    string key;
+    string value;
+}
+
+//==================================================================
+
+final class IniSection
+{
+    string name;
+    IniLine[] lines;
+}
+
+//==================================================================
+
+final class IniFile
+{
+    IniSection[] sections;
+}
+
+//==================================================================
+
+final class TreeNode
+{
+    TreeNode[] children;
+    string value;
+    int level;
+}
+
+//==================================================================
+
+final class TreeFile
+{
+    TreeNode[] roots;
 }
 
 //==================================================================

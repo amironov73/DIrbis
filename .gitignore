@@ -27,3 +27,7 @@ classes/
 # IDEA
 .idea/
 *.iml
+
+# Visual D
+.vs/
+Debug/
