@@ -55,4 +55,13 @@ void main()
 
     auto files = client.listFiles("3.IBIS.brief.*", "3.IBIS.a*.pft");
     writeln(files);
+
+    auto count = client.searchCount("\"A=ПУШКИН$\"");
+    writeln("COUNT=", count);
+
+    auto found = client.search("\"A=ПУШКИН$\"");
+    writeln(found);
+
+    auto terms = client.readTerms("J=", 10);
+    writeln(terms);
 }

@@ -1,4 +1,5 @@
 import std.stdio;
+import std.array;
 import std.conv;
 import std.encoding: transcode, Windows1251String;
 import std.random: uniform;
@@ -86,6 +87,15 @@ string[] split2(string text, string delimiter)
     }
 
     return [text[0..index], text[index + 1..$]];
+}
+
+string oneOf(string[] strings ...)
+{
+    foreach(s; strings)
+        if ((s != null) && (s.length != 0))
+            return s;
+
+    throw new Exception("No strings!");
 }
 
 //==================================================================
@@ -215,7 +225,7 @@ final class MarcRecord
      */
     MarcRecord clear()
     {
-        fields.empty();
+        fields = [];
         return this;
     }
 
@@ -281,18 +291,6 @@ final class RawRecord
 
 //==================================================================
 
-final class FoundLine
-{
-    bool materialized;
-    int serialNumber;
-    int mfn;
-    bool selected;
-    string description;
-    string sort;
-}
-
-//==================================================================
-
 /**
  * Two lines in the MNU-file.
  */
@@ -335,7 +333,7 @@ final class MenuFile
 
     MenuFile clear()
     {
-        entries.empty();
+        entries = [];
         return this;
     }
 
@@ -542,6 +540,177 @@ final class VersionInfo
 
 //==================================================================
 
+final class SearchParameters
+{
+    string database;
+    int firstRecord = 1;
+    string format;
+    int maxMfn;
+    int minMfn;
+    int numberOfRecords;
+    string expression;
+    string sequential;
+    string filter;
+    bool isUtf;
+
+}
+
+//==================================================================
+
+struct FoundLine
+{
+    int mfn;
+    string description;
+
+    void parse(string text)
+    {
+        auto parts = split2(text, "#");
+        mfn = parseInt(parts[0]);
+        if (parts.length > 1)
+            description = parts[1];
+    }
+
+    static string[] parseDesciptions(string[] lines)
+    {
+        string[] result;
+        foreach(line; lines)
+        {
+            if (line.length != 0)
+            {
+                auto index = indexOf(line, '#');
+                if (index >= 0)
+                {
+                    auto description = line[index+1..$];
+                    result ~= description;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    static FoundLine[] parseFull(string[] lines)
+    {
+        FoundLine[] result;
+        foreach(line; lines)
+        {
+            if (line.length != 0)
+            {
+                FoundLine item;
+                item.parse(line);
+                result ~= item;
+            }
+        }
+
+        return result;
+    }
+
+    static int[] parseMfn(string[] lines)
+    {
+        int[] result;
+        foreach(line; lines)
+        {
+            if (line.length != 0)
+            {
+                auto item = parseInt(line);
+                result ~= item;
+            }
+        }
+
+        return result;
+    }
+}
+
+//==================================================================
+
+/**
+ * Search term info.
+ */
+struct TermInfo
+{
+    int count; /// link count
+    string text; // search term text
+
+    static TermInfo[] parse(string[] lines)
+    {
+        TermInfo[] result;
+        foreach(line; lines)
+        {
+            if (line.length != 0)
+            {
+                auto parts = split2(line, "#");
+                if (parts.length == 2)
+                {
+                    TermInfo item;
+                    item.count = parseInt(parts[0]);
+                    item.text = parts[1];
+                    result ~= item;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    string toString()
+    {
+        return format("%d#%s", count, text);
+    }
+}
+
+//==================================================================
+
+/**
+ * Term posting info.
+ */
+struct TermPosting
+{
+    int mfn;
+    int tag;
+    int occurrence;
+    int count;
+    string text;
+
+    static TermInfo[] parse(string[] lines)
+    {
+        TermInfo[] result;
+        foreach(line; lines)
+        {
+            if (line.length != 0)
+            {
+                // TODO implement
+            }
+        }
+
+        return result;
+    }
+
+    string toString()
+    {
+        return to!string(mfn) ~ "#"
+            ~ to!string(tag) ~ "#"
+            ~ to!string(occurrence) ~ "#"
+            ~ to!string(count) ~ "#"
+            ~ text;
+    }
+}
+
+//==================================================================
+
+/**
+ * Parameters for readTerms method.
+ */
+final class TermParameters
+{
+    string database;
+    int numberOfTerms;
+    bool reverseOrder;
+    string startTerm;
+    string format;
+}
+
+//==================================================================
+
 final class ClientQuery
 {
     private OutBuffer _buffer;
@@ -670,11 +839,12 @@ final class ServerResponse
         return _offset >= _buffer.length;
     }
 
-    bool checkReturnCode()
+    bool checkReturnCode(int[] allowed ...)
     {
         if (getReturnCode() < 0)
         {
-            return false;
+            // if (indexOf(allowed, returnCode) < 0)
+                return false;
         }
         return true;
     }
@@ -1213,6 +1383,39 @@ final class Connection
         return result;
     }
 
+    TermInfo[] readTerms(string startTerm, int number)
+    {
+        auto parameters = new TermParameters();
+        parameters.startTerm = startTerm;
+        parameters.numberOfTerms = number;
+        return readTerms(parameters);
+    }
+
+    TermInfo[] readTerms(TermParameters parameters)
+    {
+        if (!connected)
+            return [];
+
+        auto command = parameters.reverseOrder ? "P" : "H";
+        auto db = oneOf(parameters.database, this.database);
+        auto query = new ClientQuery(this, command);
+        query.addAnsi(db).newLine();
+        query.addUtf(parameters.startTerm).newLine();
+        query.add(parameters.numberOfTerms).newLine();
+        auto prepared = prepareFormat(parameters.format);
+        query.addAnsi(prepared).newLine();
+        auto response = execute(query);
+        if (!response.ok)
+            return [];
+
+        response.checkReturnCode(-202, -203, -204);
+
+        auto lines = response.readRemainingUtfLines();
+        auto result = TermInfo.parse(lines);
+
+        return result;
+    }
+
     /**
      * Read the text file from the server.
      */
@@ -1292,6 +1495,90 @@ final class Connection
         auto query = new ClientQuery(this, "+8");
 
         return execute(query).ok;
+    }
+
+    /**
+     * Simple search.
+     */
+    int[] search(string expression)
+    {
+        if (!connected)
+            return [];
+
+        if (expression.length == 0)
+            return [];
+
+        auto query = new ClientQuery(this, "K");
+        query.addAnsi(database).newLine();
+        query.addUtf(expression).newLine();
+        query.add(0).newLine();
+        query.add(1).newLine();
+        auto response = execute(query);
+        if (!response.ok)
+            return [];
+
+        response.checkReturnCode();
+        response.readInteger(); // count of found records
+        auto lines = response.readRemainingUtfLines();
+        auto result = FoundLine.parseMfn(lines);
+
+        return result;
+    }
+
+    /**
+     * Extended search.
+     */
+    FoundLine[] search(SearchParameters parameters)
+    {
+        if (!connected)
+            return [];
+
+        auto db = oneOf(parameters.database, this.database);
+        auto query = new ClientQuery(this, "K");
+        query.addAnsi(db).newLine();
+        query.addUtf(parameters.expression).newLine();
+        query.add(parameters.numberOfRecords).newLine();
+        query.add(parameters.firstRecord).newLine();
+        query.addFormat(parameters.format);
+        query.add(parameters.minMfn).newLine();
+        query.add(parameters.maxMfn).newLine();
+        query.addAnsi(parameters.sequential).newLine();
+        auto response = execute(query);
+        if (!response.ok)
+            return [];
+
+        response.checkReturnCode();
+        response.readInteger(); // count of found records
+        auto lines = response.readRemainingUtfLines();
+        auto result = FoundLine.parseFull(lines);
+
+        return result;
+    }
+
+    /**
+     * Determine the number of entries matching the search expression.
+     */
+    int searchCount(string expression)
+    {
+        if (!connected)
+            return 0;
+
+        if (expression.length == 0)
+            return 0;
+
+        auto query = new ClientQuery(this, "K");
+        query.addAnsi(database).newLine();
+        query.addUtf(expression).newLine();
+        query.add(0).newLine();
+        query.add(0).newLine();
+        auto response = execute(query);
+        if (!response.ok)
+            return 0;
+
+        response.checkReturnCode();
+        auto result = response.readInteger();
+
+        return result;
     }
 
     /**
