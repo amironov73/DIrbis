@@ -25,6 +25,8 @@ void main()
         return;
     }
 
+    scope(exit) client.disconnect();
+
     writeln("Server version=", client.serverVersion);
     writeln("Interval=", client.interval);
 
@@ -36,8 +38,21 @@ void main()
     auto serverVersion = client.getServerVersion();
     writeln("Organization:", serverVersion.organization);
 
+    auto databases = client.listDatabases();
+    writeln(databases);
+
     auto content = client.readTextFile("3.IBIS.WS.OPT");
     writeln(content);
 
-    client.disconnect();
+    content = client.formatRecord("@brief", 123);
+    writeln(content);
+
+    auto record = client.readRecord(123);
+    writeln(record);
+
+    auto menu = client.readMenuFile("3.IBIS.FORMATW.MNU");
+    writeln(menu);
+
+    auto files = client.listFiles("3.IBIS.brief.*", "3.IBIS.a*.pft");
+    writeln(files);
 }
