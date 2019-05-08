@@ -98,6 +98,11 @@ string oneOf(string[] strings ...)
     throw new Exception("No strings!");
 }
 
+bool isNullOrEmpty(string text)
+{
+    return (text is null) || (text.length == 0);
+}
+
 //==================================================================
 
 final class SubField
@@ -263,13 +268,130 @@ final class MarcRecord
         result.put("0#");
         result.put(to!string(versionNumber));
         result.put(delimiter);
-        foreach(field;fields)
+        foreach (field;fields)
         {
             result.put(field.toString());
             result.put(delimiter);
         }
 
         return result.toString();
+    }
+
+    /**
+     * Get value of the field with given tag
+     * (or subfield if code given).
+     */
+    string fm(int tag, char code=0)
+    {
+        foreach (field; fields)
+        {
+            if (field.tag == tag)
+            {
+                if (code != 0)
+                {
+                    foreach (subfield; field.subfields)
+                    {
+                        if (sameChar(subfield.code, code))
+                            if (!isNullOrEmpty(subfield.value))
+                                return subfield.value;
+                    }
+                }
+                else
+                {
+                    if (!isNullOrEmpty(field.value))
+                        return field.value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get slice of values of the fields with given tag
+     * (or subfield values if code given).
+     */
+    string[] fma(int tag, char code=0)
+    {
+        string[] result;
+        foreach (field; fields)
+        {
+            if (field.tag == tag)
+            {
+                if (code != 0)
+                {
+                    foreach (subfield; field.subfields)
+                    {
+                        if (sameChar (subfield.code, code))
+                            if (!isNullOrEmpty(subfield.value))
+                                result ~= subfield.value;
+                    }
+                }
+                else
+                {
+                    if (!isNullOrEmpty(field.value))
+                        result ~= field.value;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Get field by tag and occurrence number.
+     */
+    RecordField getField(int tag, int occurrence=0)
+    {
+        foreach (field; fields)
+        {
+            if (field.tag == tag)
+            {
+                if (occurrence == 0)
+                    return field;
+                occurrence--;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get slice of fields with given tag.
+     */
+    RecordField[] getFields(int tag)
+    {
+        RecordField[] result;
+        foreach (field; fields)
+        {
+            if (field.tag == tag)
+                result ~= field;
+        }
+
+        return result;
+    }
+
+    /**
+     * Insert the field at given index.
+     */
+    MarcRecord insertAt(int index, RecordField field)
+    {
+        // TODO implement
+        return this;
+    }
+
+    /**
+     * Determine whether the record is marked as deleted.
+     */
+    @property pure bool isDeleted() const
+    {
+        return (status & 3) != 0;
+    }
+
+    MarcRecord removeAt(int index)
+    {
+        // TODO implement
+        return this;
     }
 
     override string toString()
