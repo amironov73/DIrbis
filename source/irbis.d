@@ -36,12 +36,12 @@ string fromUtf(ubyte[] text)
     return cast(string)text;
 }
 
-bool sameChar(char c1, char c2)
+pure bool sameChar(char c1, char c2)
 {
     return toUpper(c1) == toUpper(c2);
 }
 
-bool sameString(string s1, string s2)
+pure bool sameString(string s1, string s2)
 {
     return icmp(s1, s2) == 0;
 }
@@ -56,13 +56,7 @@ string[] irbisToLines(string text)
     return text.split("\x1F\x1E");
 }
 
-string prepareFormat(string text)
-{
-    // TODO implement
-    return text;
-}
-
-int parseInt(ubyte[] text)
+pure int parseInt(ubyte[] text)
 {
     int result = 0;
     foreach(c; text)
@@ -70,7 +64,7 @@ int parseInt(ubyte[] text)
     return result;
 }
 
-int parseInt(string text)
+pure int parseInt(string text)
 {
     int result = 0;
     foreach(c; text)
@@ -89,7 +83,7 @@ string[] split2(string text, string delimiter)
     return [text[0..index], text[index + 1..$]];
 }
 
-string oneOf(string[] strings ...)
+pure string oneOf(string[] strings ...)
 {
     foreach(s; strings)
         if ((s != null) && (s.length != 0))
@@ -98,17 +92,39 @@ string oneOf(string[] strings ...)
     throw new Exception("No strings!");
 }
 
-bool isNullOrEmpty(string text)
+pure bool isNullOrEmpty(string text)
 {
     return (text is null) || (text.length == 0);
 }
 
+string removeComments(string text)
+{
+    if (isNullOrEmpty(text))
+        return text;
+
+    if (indexOf(text, "/*") < 0)
+        return text;
+
+    // TODO implement
+    return text;
+}
+
+string prepareFormat(string text)
+{
+    text = removeComments(text);
+    // TODO implement
+    return text;
+}
+
 //==================================================================
 
+/**
+ * Subfield consist of a code and value.
+ */
 final class SubField
 {
-    char code;
-    string value;
+    char code; /// One-symbol code of the subfield.
+    string value; /// String value of the subfield.
 
     this()
     {
@@ -120,25 +136,44 @@ final class SubField
         this.value = value;
     }
 
+    /**
+     * Deep clone of the subfield.
+     */
+    SubField clone() const
+    {
+        return new SubField(code, value);
+    }
+
+    /**
+     * Decode the subfield from protocol representation.
+     */
     void decode(string text)
     {
         code = text[0];
         value = text[1..$];
     }
 
-    override string toString()
+    override pure string toString()
     {
         return "^" ~ code ~ value;
     }
-}
+
+    pure bool verify() const
+    {
+        return (code != 0) && !isNullOrEmpty(value);
+    }
+} // class SubField
 
 //==================================================================
 
+/**
+ * Field consist of a value and subfields.
+ */
 final class RecordField
 {
-    int tag;
-    string value;
-    SubField[] subfields;
+    int tag; /// Numerical tag of the field.
+    string value; /// String value of the field.
+    SubField[] subfields; /// Subfields.
 
     this(int tag=0, string value="")
     {
@@ -147,6 +182,42 @@ final class RecordField
         this.subfields = new SubField[0];
     }
 
+    /**
+     * Append subfield with specified code and value.
+     */
+    RecordField add(char code, string value)
+    {
+        auto subfield = new SubField(code, value);
+        subfields ~= subfield;
+        return this;
+    }
+
+    /**
+     * Clear the field (remove the value and all the subfields).
+     */
+    RecordField clear()
+    {
+        value = "";
+        subfields = [];
+        return this;
+    }
+
+    /**
+     * Clone the field.
+     */
+    RecordField clone()
+    {
+        auto result = new RecordField(tag, value);
+        foreach (subfield; subfields)
+        {
+            result.subfields ~= subfield.clone();
+        }
+        return result;
+    }
+
+    /**
+     * Decode body of the field from protocol representation.
+     */
     void decodeBody(string bodyText)
     {
         auto all = bodyText.split("^");
@@ -176,6 +247,64 @@ final class RecordField
         decodeBody(parts[1]);
     }
 
+    /**
+     * Get slice of the embedded fields.
+     */
+    RecordField[] getEmbeddedFields()
+    {
+        // TODO implement
+        return [];
+    }
+
+    /**
+     * Get first subfield with given code.
+     */
+    SubField getFirstSubField(char code)
+    {
+        foreach (subfield; subfields)
+            if (sameChar(subfield.code, code))
+                return subfield;
+        return null;
+    }
+
+    /**
+     * Get value of first subfield with given code.
+     */
+    string getFirstSubFieldValue(char code)
+    {
+        foreach (subfield; subfields)
+            if (sameChar(subfield.code, code))
+                return subfield.value;
+        return null;
+    }
+
+    /**
+     * Insert the subfield at specified position.
+     */
+    RecordField insertAt(int index, SubField subfield)
+    {
+        // TODO implement
+        return this;
+    }
+
+    /**
+     * Remove subfield at specified position.
+     */
+    RecordField removeAt(int index)
+    {
+        // TODO implement
+        return this;
+    }
+
+    /**
+     * Remove all subfields with specified code.
+     */
+    RecordField removeSubfield(char code)
+    {
+        // TODO implement
+        return this;
+    }
+
     override string toString()
     {
         auto result = new OutBuffer();
@@ -188,10 +317,32 @@ final class RecordField
         }
         return result.toString();
     }
-}
+
+    /**
+     * Verify the field.
+     */
+    bool verify()
+    {
+        bool result = (tag != 0) && (!isNullOrEmpty(value) || (subfields.length != 0));
+        if (result && (subfields.length != 0))
+        {
+            foreach (subfield; subfields)
+            {
+                result = subfield.verify();
+                if (!result)
+                    break;
+            }
+        }
+
+        return result;
+    }
+} // class RecordField
 
 //==================================================================
 
+/**
+ * Record consist of fields.
+ */
 final class MarcRecord
 {
     string database;
@@ -824,11 +975,46 @@ struct TermPosting
  */
 final class TermParameters
 {
-    string database;
-    int numberOfTerms;
-    bool reverseOrder;
-    string startTerm;
-    string format;
+    string database; /// Database name.
+    int numberOfTerms; /// Number of terms to read.
+    bool reverseOrder; /// Return terms in reverse order?
+    string startTerm; /// Start term.
+    string format; /// Format specification (optional).
+}
+
+//==================================================================
+
+/**
+ * Data for printTable method.
+ */
+final class TableDefinition
+{
+    string database; /// Database name.
+    string table; /// Table file name.
+    string[] headers; /// Table headers.
+    string mode; /// Table mode.
+    string searchQuery; /// Search query.
+    int minMfn; /// Minimal MFN.
+    int maxMfn; /// Maximal MFN.
+    string sequentialQuery; /// Query for sequential search.
+    int[] mfnList; /// Lisf of MFNs to use.
+
+    override string toString()
+    {
+        return table;
+    }
+}
+
+//==================================================================
+
+/**
+ * IRBIS64 server working statistics.
+ */
+final class ServerStat
+{
+    string[] runningClients;
+    int clientCount;
+    int totalCommandCount;
 }
 
 //==================================================================
