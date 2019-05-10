@@ -9,8 +9,87 @@ import std.outbuffer;
 
 //==================================================================
 //
-// Utility functions
+// Constants
+//
 
+// Record status
+
+const LOGICALLY_DELETED  = 1;  /// Logically deleted record.
+const PHYSICALLY_DELETED = 2;  /// Physically deleted record.
+const ABSENT             = 4;  /// Record is absent.
+const NON_ACTUALIZED     = 8;  /// Record is not actualized.
+const LAST_VERSION       = 32; /// Last version of the record.
+const LOCKED_RECORD      = 64; /// Record is locked.
+
+// Common formats
+
+const ALL_FORMAT       = "&uf('+0')";  /// Full data by all the fields.
+const BRIEF_FORMAT     = "@brief";     /// Short bibliographical description.
+const IBIS_FORMAT      = "@ibiskw_h";  /// Old IBIS format.
+const INFO_FORMAT      = "@info_w";    /// Informational format.
+const OPTIMIZED_FORMAT = "@";          /// Optimized format.
+
+// Common search prefixes
+
+const KEYWORD_PREFIX    = "K=";  /// Keywords.
+const AUTHOR_PREFIX     = "A=";  /// Individual author, editor, compiler.
+const COLLECTIVE_PREFIX = "M=";  /// Collective author or event.
+const TITLE_PREFIX      = "T=";  /// Title.
+const INVENTORY_PREFIX  = "IN="; /// Inventory number, barcode or RFID tag.
+const INDEX_PREFIX      = "I=";  /// Document index.
+
+// Logical operators for search
+
+const LOGIC_OR                = 0; /// OR only
+const LOGIC_OR_AND            = 1; /// OR or AND
+const LOGIC_OR_AND_NOT        = 2; /// OR, AND or NOT (default)
+const LOGIC_OR_AND_NOT_FIELD  = 3; /// OR, AND, NOT, AND in field
+const LOGIC_OR_AND_NOT_PHRASE = 4; /// OR, AND, NOT, AND in field, AND in phrase
+
+// Workstation codes
+
+const ADMINISTRATOR = "A"; /// Administator
+const CATALOGER     = "C"; /// Cataloger
+const ACQUSITIONS   = "M"; /// Acquisitions
+const READER        = "R"; /// Reader
+const CIRCULATION   = "B"; /// Circulation
+const BOOKLAND      = "B"; /// Bookland
+const PROVISION     = "K"; /// Provision
+
+// Commands for global correction.
+
+const ADD_FIELD        = "ADD";    /// Add field.
+const DELETE_FIELD     = "DEL";    /// Delete field.
+const REPLACE_FIELD    = "REP";    /// Replace field.
+const CHANGE_FIELD     = "CHA";    /// Change field.
+const CHANGE_WITH_CASE = "CHAC";   /// Change field with case sensitivity.
+const DELETE_RECORD    = "DELR";   /// Delete record.
+const UNDELETE_RECORD  = "UNDELR"; /// Recover (undelete) record.
+const CORRECT_RECORD   = "CORREC"; /// Correct record.
+const CREATE_RECORD    = "NEWMFN"; /// Create record.
+const EMPTY_RECORD     = "EMPTY";  /// Empty record.
+const UNDO_RECORD      = "UNDOR";  /// Revert to previous version.
+const GBL_END          = "END";    /// Closing operator bracket.
+const GBL_IF           = "IF";     /// Conditional statement start.
+const GBL_FI           = "FI";     /// Conditional statement end.
+const GBL_ALL          = "ALL";    /// All.
+const GBL_REPEAT       = "REPEAT"; /// Repeat operator.
+const GBL_UNTIL        = "UNTIL";  /// Until condition.
+const PUTLOG           = "PUTLOG"; /// Save logs to file.
+
+// Line delimiters
+
+const IRBIS_DELIMITER = "\x1F\x1E"; /// IRBIS line delimiter.
+const SHORT_DELIMITER = "\x1E";     /// Short version of line delimiter.
+const ALT_DELIMITER   = "\x1F";     /// Alternative version of line delimiter.
+const UNIX_DELIMITER  = "\n";       /// Standard UNIX line delimiter.
+
+//==================================================================
+//
+// Utility functions
+//
+
+/// Converts the text to ANSI encoding.
 ubyte[] toAnsi(string text)
 {
     Windows1251String encoded;
@@ -18,6 +97,7 @@ ubyte[] toAnsi(string text)
     return cast(ubyte[])encoded;
 }
 
+/// Converts the slice of bytes from ANSI encoding to text.
 string fromAnsi(ubyte[] text)
 {
     Windows1251String s = cast(Windows1251String)text;
@@ -26,36 +106,43 @@ string fromAnsi(ubyte[] text)
     return decoded;
 }
 
+/// Converts the text to UTF-8 encoding.
 ubyte[] toUtf(string text)
 {
     return cast(ubyte[])text;
 }
 
+/// Converts the slice of bytes from UTF-8 encoding to text.
 string fromUtf(ubyte[] text)
 {
     return cast(string)text;
 }
 
+/// Examines whether the characters are the same.
 pure bool sameChar(char c1, char c2)
 {
     return toUpper(c1) == toUpper(c2);
 }
 
+/// Examines whether the strings are the same.
 pure bool sameString(string s1, string s2)
 {
     return icmp(s1, s2) == 0;
 }
 
-string irbisToDos(string text)
+/// Convert text from IRBIS representation to UNIX.
+string irbisToUnix(string text)
 {
-    return replace(text, "\x1F\x1E", "\n");
+    return replace(text, IRBIS_DELIMITER, UNIX_DELIMITER);
 }
 
+/// Split text to lines by IRBIS delimiter
 string[] irbisToLines(string text)
 {
-    return text.split("\x1F\x1E");
+    return text.split(IRBIS_DELIMITER);
 }
 
+/// Fast parse integer number.
 pure int parseInt(ubyte[] text)
 {
     int result = 0;
@@ -64,6 +151,7 @@ pure int parseInt(ubyte[] text)
     return result;
 }
 
+/// Fast parse integer number.
 pure int parseInt(string text)
 {
     int result = 0;
@@ -72,6 +160,7 @@ pure int parseInt(string text)
     return result;
 }
 
+/// Split the text by the delimiter to 2 parts.
 pure string[] split2(string text, string delimiter)
 {
     auto index = indexOf(text, delimiter);
@@ -83,20 +172,23 @@ pure string[] split2(string text, string delimiter)
     return [text[0..index], text[index + 1..$]];
 }
 
-pure string oneOf(string[] strings ...)
-{
-    foreach(s; strings)
-        if ((s != null) && (s.length != 0))
-            return s;
-
-    throw new Exception("No strings!");
-}
-
+/// Determines whether the string is null or empty.
 pure bool isNullOrEmpty(string text)
 {
     return (text is null) || (text.length == 0);
 }
 
+/// Pick first non-empty string from the array.
+pure string pickOne(string[] strings ...)
+{
+    foreach(s; strings)
+        if (!isNullOrEmpty(s))
+            return s;
+
+    throw new Exception("No strings!");
+}
+
+/// Remove comments from the format.
 string removeComments(string text)
 {
     if (isNullOrEmpty(text))
@@ -109,6 +201,7 @@ string removeComments(string text)
     return text;
 }
 
+/// Prepare the format.
 string prepareFormat(string text)
 {
     text = removeComments(text);
@@ -126,10 +219,12 @@ final class SubField
     char code; /// One-symbol code of the subfield.
     string value; /// String value of the subfield.
 
+    /// Constructor.
     this()
     {
     }
 
+    /// Constructor.
     this(char code, string value)
     {
         this.code = code;
@@ -158,6 +253,9 @@ final class SubField
         return "^" ~ code ~ value;
     }
 
+    /**
+     * Verify the subfield.
+     */
     pure bool verify() const
     {
         return (code != 0) && !isNullOrEmpty(value);
@@ -175,6 +273,7 @@ final class RecordField
     string value; /// String value of the field.
     SubField[] subfields; /// Subfields.
 
+    /// Constructor.
     this(int tag=0, string value="")
     {
         this.tag = tag;
@@ -345,12 +444,13 @@ final class RecordField
  */
 final class MarcRecord
 {
-    string database;
-    int mfn;
-    int versionNumber;
-    int status;
-    RecordField[] fields;
+    string database; /// Database name
+    int mfn; /// Masterfile number
+    int versionNumber; /// Version number
+    int status; /// Status
+    RecordField[] fields; /// Slice of fields.
 
+    /// Constructor.
     this()
     {
         fields = new RecordField[0];
@@ -409,7 +509,7 @@ final class MarcRecord
     /**
      * Encode the record to the protocol representation.
      */
-    pure string encode(string delimiter="\x1F\x1E") const
+    pure string encode(string delimiter=IRBIS_DELIMITER) const
     {
         auto result = new OutBuffer();
         result.put(to!string(mfn));
@@ -539,6 +639,9 @@ final class MarcRecord
         return (status & 3) != 0;
     }
 
+    /**
+     * Remove field at specified index.
+     */
     MarcRecord removeAt(int index)
     {
         // TODO implement
@@ -555,11 +658,11 @@ final class MarcRecord
 
 final class RawRecord
 {
-    string database;
-    int mfn;
-    int versionNumber;
-    int status;
-    string[] fields;
+    string database; /// Database name.
+    int mfn; /// Masterfile number
+    int versionNumber; /// Version number
+    int status; /// Status.
+    string[] fields; /// Slice of fields.
 } // class RawRecord
 
 //==================================================================
@@ -569,13 +672,15 @@ final class RawRecord
  */
 final class MenuEntry
 {
-    string code;
-    string comment;
+    string code; /// Code.
+    string comment; /// Comment.
 
+    /// Constructor.
     this()
     {
     }
 
+    /// Constructor.
     this(string code, string comment)
     {
         this.code = code;
@@ -595,8 +700,11 @@ final class MenuEntry
  */
 final class MenuFile
 {
-    MenuEntry[] entries; // entries
+    MenuEntry[] entries; /// Slice of entries.
 
+    /**
+     * Add an entry.
+     */
     MenuFile add(string code, string comment)
     {
         auto entry = new MenuEntry(code, comment);
@@ -604,12 +712,18 @@ final class MenuFile
         return this;
     }
 
+    /**
+     * Clear the menu.
+     */
     MenuFile clear()
     {
         entries = [];
         return this;
     }
 
+    /**
+     * Get entry.
+     */
     MenuEntry getEntry(string code)
     {
         if (entries.length == 0)
@@ -632,6 +746,9 @@ final class MenuFile
         return null;
     }
 
+    /**
+     * Get value.
+     */
     string getValue(string code, string defaultValue="")
     {
         auto entry = getEntry(code);
@@ -640,6 +757,9 @@ final class MenuFile
         return entry.comment;
     }
 
+    /**
+     * Parse text representation.
+     */
     void parse(string[] lines)
     {
         for(int i=0; i < lines.length; i += 2)
@@ -690,8 +810,8 @@ final class IniLine
  */
 final class IniSection
 {
-    string name;
-    IniLine[] lines;
+    string name; /// Name of the section.
+    IniLine[] lines; /// Lines.
 
     /**
      * Find INI-line with specified key.
@@ -771,7 +891,7 @@ final class IniSection
  */
 final class IniFile
 {
-    IniSection[] sections;
+    IniSection[] sections; /// Slice of sections.
 
     /**
      * Find section with specified name.
@@ -841,7 +961,7 @@ final class IniFile
                 section.lines ~= item;
             }
         }
-    }
+    } // method parse
 
     /**
      * Set the value for specified key in specified section.
@@ -870,18 +990,24 @@ final class IniFile
 
 //==================================================================
 
+/**
+ * Node of TRE-file.
+ */
 final class TreeNode
 {
-    TreeNode[] children;
-    string value;
-    int level;
+    TreeNode[] children; /// Slice of children.
+    string value; /// Value of the node.
+    int level; /// Level of the node.
 } // class TreeNode
 
 //==================================================================
 
+/**
+ * TRE-file.
+ */
 final class TreeFile
 {
-    TreeNode[] roots;
+    TreeNode[] roots; /// Slice of root nodes.
 } // class TreeFile
 
 //==================================================================
@@ -893,33 +1019,36 @@ final class DatabaseInfo
 {
     string name; /// Database name
     string description; /// Description
-    int maxMfn; // Maximal MFN
-    int[] logicallyDeletedRecords;
-    int[] physicallyDeletedRecords;
-    int[] nonActualizedRecords;
-    int[] lockedRecords;
-    bool databaseLocked;
-    bool readOnly;
+    int maxMfn; /// Maximal MFN
+    int[] logicallyDeletedRecords; /// Logically deleted records.
+    int[] physicallyDeletedRecords; /// Physically deleted records.
+    int[] nonActualizedRecords; /// Non-actualized records.
+    int[] lockedRecords; /// Locked records.
+    bool databaseLocked; /// Whether the database is locked.
+    bool readOnly; /// Whether the database is read-only.
 
-    static DatabaseInfo[] parseMenu(MenuFile menu)
+    /**
+     * Parse the menu.
+     */
+    static DatabaseInfo[] parseMenu(const MenuFile menu)
     {
         DatabaseInfo[] result;
 
         foreach(entry; menu.entries)
         {
-            auto name = entry.code;
-            if (name.length == 0 || name.startsWith("*****"))
+            string entryName = entry.code;
+            if ((entryName.length == 0) || entryName.startsWith("*****"))
                 break;
             auto description = entry.comment;
             auto readOnly = false;
-            if (name[0] == '-')
+            if (entryName[0] == '-')
             {
-                name = name[1..$];
+                entryName = entryName[1..$];
                 readOnly = true;
             }
 
             auto db = new DatabaseInfo();
-            db.name = name;
+            db.name = entryName;
             db.description = description;
             db.readOnly = readOnly;
             result ~= db;
@@ -928,7 +1057,7 @@ final class DatabaseInfo
         return result;
     } // method parseMenu
 
-    override string toString()
+    override string toString() const
     {
         return name;
     }
@@ -941,26 +1070,12 @@ final class DatabaseInfo
  */
 final class VersionInfo
 {
-    /**
-     * License owner organization.
-     */
-    string organization;
+    string organization; /// License owner organization.
+    string serverVersion; /// Server version itself. Example: 64.2008.1
+    int maxClients; /// Maximum simultaneous connected client number.
+    int connectedClients; /// Current connected clients number.
 
-    /**
-     * Server version itself. Example: 64.2008.1
-     */
-    string serverVersion;
-
-    /**
-     * Maximum simultaneous connected client number.
-     */
-    int maxClients;
-
-    /**
-     * Current connected clients number.
-     */
-    int connectedClients;
-
+    /// Constructor.
     this()
     {
         organization = "";
@@ -991,18 +1106,20 @@ final class VersionInfo
 
 //==================================================================
 
+/**
+ * Parameters for search method.
+ */
 final class SearchParameters
 {
-    string database;
-    int firstRecord = 1;
-    string format;
-    int maxMfn;
-    int minMfn;
-    int numberOfRecords;
-    string expression;
-    string sequential;
-    string filter;
-    bool isUtf;
+    string database; /// Database name.
+    int firstRecord = 1; /// First record number.
+    string format; /// Format specification.
+    int maxMfn; /// Maximal MFN.
+    int minMfn; /// Minimal MFN.
+    int numberOfRecords; /// Number of records required. 0 = all.
+    string expression; /// Search expression.
+    string sequential; /// Sequential search expression.
+    string filter; /// Additional filter.
 } // class SearchParameters
 
 //==================================================================
@@ -1197,12 +1314,13 @@ final class ServerStat
 //==================================================================
 
 /**
- * Client query.
+ * Client query encoder.
  */
 final class ClientQuery
 {
     private OutBuffer _buffer;
 
+    /// Constructor.
     this(Connection connection, string command)
     {
         _buffer = new OutBuffer();
@@ -1218,18 +1336,21 @@ final class ClientQuery
         newLine();
     } // this
 
+    /// Add integer value.
     ClientQuery add(int value)
     {
         auto text = to!string(value);
         return addUtf(text);
     } // method add
 
+    /// Add boolean value.
     ClientQuery add(bool value)
     {
         auto text = value ? "1" : "0";
         return addUtf(text);
     } // method add
 
+    /// Add text in ANSI encoding.
     ClientQuery addAnsi(string text)
     {
         auto bytes = toAnsi(text);
@@ -1237,9 +1358,10 @@ final class ClientQuery
         return this;
     } // method addAnsi
 
+    /// Add format specification
     bool addFormat(string text)
     {
-        auto stripped = strip(text);
+        const stripped = strip(text);
 
         if (stripped.length == 0)
         {
@@ -1266,6 +1388,7 @@ final class ClientQuery
         return true;
     } // method addFormat
 
+    /// Add text in UTF-8 encoding.
     ClientQuery addUtf(string text)
     {
         auto bytes = toUtf(text);
@@ -1273,6 +1396,7 @@ final class ClientQuery
         return this;
     } // method addUtf
 
+    /// Encode the query.
     ubyte[] encode() const
     {
         auto bytes = _buffer.toBytes();
@@ -1282,6 +1406,7 @@ final class ClientQuery
         return result.toBytes();
     } // method encode
 
+    /// Add line delimiter symbol.
     ClientQuery newLine()
     {
         _buffer.write(cast(byte)10);
@@ -1291,20 +1416,24 @@ final class ClientQuery
 
 //==================================================================
 
+/**
+ * Server response decoder.
+ */
 final class ServerResponse
 {
     private bool _ok;
     private ubyte[] _buffer;
     private ptrdiff_t _offset;
 
-    string command;
-    int clientId;
-    int queryId;
-    int answerSize;
-    int returnCode;
-    string serverVersion;
-    int interval;
+    string command; /// Command code.
+    int clientId; /// Client id.
+    int queryId; /// Query id.
+    int answerSize; /// Answer size.
+    int returnCode; /// Return code.
+    string serverVersion; /// Server version.
+    int interval; /// Auto-ack interval.
 
+    /// Constructor.
     this(ubyte[] buffer)
     {
         _ok = buffer.length != 0;
@@ -1323,26 +1452,31 @@ final class ServerResponse
         readAnsi();
     } // this
 
-    @property bool ok() const nothrow
+    /// Whether all data received?
+    @property pure bool ok() const nothrow
     {
         return _ok;
     }
 
-    @property bool eof() const nothrow
+    /// Whether end of response reached?
+    @property pure bool eof() const nothrow
     {
         return _offset >= _buffer.length;
     }
 
+    /// Check return code.
     bool checkReturnCode(int[] allowed ...)
     {
         if (getReturnCode() < 0)
         {
+            // TODO implement
             // if (indexOf(allowed, returnCode) < 0)
                 return false;
         }
         return true;
     }
 
+    /// Get raw line (no encoding applied).
     ubyte[] getLine()
     {
         auto result = new OutBuffer();
@@ -1362,19 +1496,22 @@ final class ServerResponse
         }
 
         return result.toBytes();
-    }
+    } // method getLine
 
+    /// Get return code.
     int getReturnCode()
     {
         returnCode = readInteger();
         return returnCode;
     }
 
+    /// Read line in ANSI encoding.
     string readAnsi()
     {
         return fromAnsi(getLine());
-    }
+    } // method readAnsi
 
+    /// Read integer value
     int readInteger()
     {
         auto line = readUtf();
@@ -1384,8 +1521,9 @@ final class ServerResponse
             result = to!int(line);
         }
         return result;
-    }
+    } // method readInteger
 
+    /// Read remaining lines in ANSI encoding.
     string[] readRemainingAnsiLines()
     {
         string[] result = new string[0];
@@ -1395,14 +1533,16 @@ final class ServerResponse
             result ~= line;
         }
         return result;
-    }
+    } // method readRemainingAnsiLines
 
+    /// Read remaining text in ANSI encoding.
     string readRemainingAnsiText()
     {
         auto chunk = _buffer[_offset..$];
         return fromAnsi(chunk);
-    }
+    } // method readRemainingAnsiText
 
+    /// Read remaining lines in UTF-8 encoding.
     string[] readRemainingUtfLines()
     {
         string[] result = new string[0];
@@ -1412,18 +1552,21 @@ final class ServerResponse
             result ~= line;
         }
         return result;
-    }
+    } // method readRemainingUtfLines
 
+    /// Read remaining text in UTF-8 encoding.
     string readRemainingUtfText()
     {
         auto chunk = _buffer[_offset..$];
         return fromUtf(chunk);
-    }
+    } // method readRemainingUtfText
 
+    /// Read line in UTF-8 encoding.
     string readUtf()
     {
         return fromUtf(getLine());
-    }
+    } // method readUtf
+
 } // class ServerResponse
 
 //==================================================================
@@ -1433,6 +1576,9 @@ final class ServerResponse
  */
 class ClientSocket
 {
+    /**
+     * Talk to server and get response.
+     */
     abstract ServerResponse talkToServer(const ClientQuery query);
 } // class ClientSocket
 
@@ -1445,6 +1591,7 @@ final class Tcp4ClientSocket : ClientSocket
 {
     private Connection _connection;
 
+    /// Constructor.
     this(Connection connection)
     {
         _connection = connection;
@@ -1472,33 +1619,38 @@ final class Tcp4ClientSocket : ClientSocket
 
         return result;
     } // method talkToServer
+
 } // class Tcp4ClientSocket
 
 //==================================================================
 
+/**
+ * IRBIS-sever connection.
+ */
 final class Connection
 {
     private bool _connected;
 
-    string host;
-    ushort port;
-    string username;
-    string password;
-    string database;
-    string workstation;
-    int clientId;
-    int queryId;
-    string serverVersion;
-    int interval;
-    IniFile ini;
-    ClientSocket socket;
+    string host; /// Host name or address.
+    ushort port; /// Port number.
+    string username; /// User login.
+    string password; /// User password.
+    string database; /// Current database name.
+    string workstation; /// Workstation code.
+    int clientId; /// Unique client identifier.
+    int queryId; /// Sequential query number.
+    string serverVersion; /// Server version.
+    int interval; /// Auto-ack interval.
+    IniFile ini; /// INI-file.
+    ClientSocket socket; /// Socket.
 
+    /// Constructor.
     this()
     {
         host = "127.0.0.1";
         port = 6666;
         database = "IBIS";
-        workstation = "C";
+        workstation = CATALOGER;
         socket = new Tcp4ClientSocket(this);
         _connected = false;
     }
@@ -1506,11 +1658,6 @@ final class Connection
     ~this()
     {
         disconnect();
-    }
-
-    @property bool connected() const nothrow
-    {
-        return _connected;
     }
 
     /**
@@ -1573,6 +1720,12 @@ final class Connection
 
         return true;
     } // method connect
+
+    /// Whether the client is connected to the server?
+    @property pure bool connected() const nothrow
+    {
+        return _connected;
+    }
 
     /**
      * Create the server database.
@@ -1648,6 +1801,9 @@ final class Connection
         return true;
     } // method disconnect
 
+    /**
+     * Execute the query.
+     */
     ServerResponse execute(const ClientQuery query)
     {
         ServerResponse result;
@@ -1697,12 +1853,12 @@ final class Connection
         if (!connected || isNullOrEmpty(format) || (record is null))
             return "";
 
-        auto db = oneOf(record.database, this.database);
+        auto db = pickOne(record.database, this.database);
         auto query = new ClientQuery(this, "G");
         query.addAnsi(db).newLine();
         query.addFormat(format);
         query.add(-2).newLine();
-        query.addUtf(record.encode("\x1F\x1E"));
+        query.addUtf(record.encode(IRBIS_DELIMITER));
         auto response = execute(query);
         if (!response.ok || !response.checkReturnCode())
             return "";
@@ -1720,7 +1876,7 @@ final class Connection
         if (!connected)
             return 0;
 
-        auto db = oneOf(databaseName, this.database);
+        auto db = pickOne(databaseName, this.database);
         auto query = new ClientQuery(this, "O");
         query.addAnsi(db);
         auto response = execute(query);
@@ -1834,7 +1990,7 @@ final class Connection
             if (parts.length != 2)
                 continue;
 
-            auto name = toLower(strip(parts[0]));
+            const name = toLower(strip(parts[0]));
             auto value = strip(parts[1]);
 
             switch(name)
@@ -1927,13 +2083,13 @@ final class Connection
     /**
      * Read terms from the inverted file.
      */
-    TermInfo[] readTerms(TermParameters parameters)
+    TermInfo[] readTerms(const TermParameters parameters)
     {
         if (!connected)
             return [];
 
         auto command = parameters.reverseOrder ? "P" : "H";
-        auto db = oneOf(parameters.database, this.database);
+        auto db = pickOne(parameters.database, this.database);
         auto query = new ClientQuery(this, command);
         query.addAnsi(db).newLine();
         query.addUtf(parameters.startTerm).newLine();
@@ -1967,7 +2123,7 @@ final class Connection
             return "";
 
         auto result = response.readAnsi();
-        result = irbisToDos(result);
+        result = irbisToUnix(result);
 
         return result;
     } // method readTextFile
@@ -2064,12 +2220,12 @@ final class Connection
     /**
      * Extended search.
      */
-    FoundLine[] search(SearchParameters parameters)
+    FoundLine[] search(const SearchParameters parameters)
     {
         if (!connected)
             return [];
 
-        auto db = oneOf(parameters.database, this.database);
+        auto db = pickOne(parameters.database, this.database);
         auto query = new ClientQuery(this, "K");
         query.addAnsi(db).newLine();
         query.addUtf(parameters.expression).newLine();
@@ -2166,7 +2322,7 @@ final class Connection
      * Compose the connection string for current connection.
      * The connection does not have to be established.
      */
-    string toConnectionString()
+    pure string toConnectionString() const
     {
         return format
             (
@@ -2241,7 +2397,7 @@ final class Connection
         if (!connected || (record is null))
             return 0;
 
-        auto db = oneOf(record.database, this.database);
+        auto db = pickOne(record.database, this.database);
         auto query = new ClientQuery(this, "D");
         query.addAnsi(db).newLine();
         query.add(lockFlag).newLine();
