@@ -72,7 +72,7 @@ pure int parseInt(string text)
     return result;
 }
 
-string[] split2(string text, string delimiter)
+pure string[] split2(string text, string delimiter)
 {
     auto index = indexOf(text, delimiter);
     if (index < 0)
@@ -153,7 +153,7 @@ final class SubField
         value = text[1..$];
     }
 
-    override pure string toString()
+    pure override string toString() const
     {
         return "^" ~ code ~ value;
     }
@@ -305,7 +305,7 @@ final class RecordField
         return this;
     }
 
-    override string toString()
+    pure override string toString() const
     {
         auto result = new OutBuffer();
         result.put(to!string(tag));
@@ -409,7 +409,7 @@ final class MarcRecord
     /**
      * Encode the record to the protocol representation.
      */
-    string encode(string delimiter)
+    pure string encode(string delimiter="\x1F\x1E") const
     {
         auto result = new OutBuffer();
         result.put(to!string(mfn));
@@ -545,11 +545,11 @@ final class MarcRecord
         return this;
     }
 
-    override string toString()
+    pure override string toString() const
     {
         return encode("\n");
     }
-}
+} // class MarcRecord
 
 //==================================================================
 
@@ -560,7 +560,7 @@ final class RawRecord
     int versionNumber;
     int status;
     string[] fields;
-}
+} // class RawRecord
 
 //==================================================================
 
@@ -582,11 +582,11 @@ final class MenuEntry
         this.comment = comment;
     }
 
-    override string toString()
+    override string toString() const
     {
         return code ~ " - " ~ comment;
     }
-}
+} // class MenuEntry
 
 //==================================================================
 
@@ -653,7 +653,7 @@ final class MenuFile
         }
     }
 
-    override string toString()
+    override string toString() const
     {
         auto result = new OutBuffer();
         foreach(entry; entries)
@@ -665,30 +665,208 @@ final class MenuFile
 
         return result.toString();
     }
-}
+} // class MenuFile
 
 //==================================================================
 
+/**
+ * Line of INI-file. Consist of a key and value.
+ */
 final class IniLine
 {
-    string key;
-    string value;
-}
+    string key; /// Key string.
+    string value; /// Value string
+
+    pure override string toString() const
+    {
+        return this.key ~ "=" ~ this.value;
+    }
+} // class IniLine
 
 //==================================================================
 
+/**
+ * Section of INI-file. Consist of lines (see IniLine).
+ */
 final class IniSection
 {
     string name;
     IniLine[] lines;
-}
+
+    /**
+     * Find INI-line with specified key.
+     */
+    pure IniLine find(string key)
+    {
+        foreach (line; lines)
+            if (sameString(line.key, key))
+                return line;
+        return null;
+    }
+
+    /**
+     * Get value for specified key.
+     * If no entry found, default value used.
+     */
+    pure string getValue(string key, string defaultValue="")
+    {
+        auto found = find(key);
+        return (found is null) ? defaultValue : found.value;
+    }
+
+    /**
+     * Remove line with specified key.
+     */
+    void remove(string key)
+    {
+        // TODO implement
+    }
+
+    /**
+     * Set the value for specified key.
+     */
+    IniSection setValue(string key, string value)
+    {
+        if (value is null)
+        {
+            remove(key);
+        }
+        else
+        {
+            auto item = find(key);
+            if (item is null)
+            {
+                item = new IniLine();
+                lines ~= item;
+                item.key = key;
+            }
+            item.value = value;
+        }
+
+        return this;
+    }
+
+    pure override string toString() const
+    {
+        auto result = new OutBuffer();
+        if (!isNullOrEmpty(name))
+        {
+            result.put("[");
+            result.put(name);
+            result.put("]");
+        }
+        foreach (line; lines)
+        {
+            result.put(line.toString());
+            result.put("\n");
+        }
+        return result.toString();
+    }
+} // class IniSection
 
 //==================================================================
 
+/**
+ * INI-file. Consist of sections (see IniSection).
+ */
 final class IniFile
 {
     IniSection[] sections;
-}
+
+    /**
+     * Find section with specified name.
+     */
+    pure IniSection findSection(string name)
+    {
+        foreach (section; sections)
+            if (sameString(section.name, name))
+                return section;
+        return null;
+    }
+
+    /**
+     * Get section with specified name.
+     * Create the section if it doesn't exist.
+     */
+    IniSection getOrCreateSection(string name)
+    {
+        auto result = findSection(name);
+        if (result is null)
+        {
+            result = new IniSection();
+            result.name = name;
+            sections ~= result;
+        }
+        return result;
+    }
+
+    /**
+     * Get the value from the specified section and key.
+     */
+    pure string getValue(string sectionName, string key, string defaultValue="")
+    {
+        auto section = findSection(sectionName);
+        return (section is null) 
+            ? defaultValue : section.getValue(key, defaultValue);
+    }
+
+    /**
+     * Parse the text representation of the INI-file.
+     */
+    void parse(string[] lines)
+    {
+        IniSection section = null;
+        foreach (line; lines) {
+            auto trimmed = strip(line);
+            if (isNullOrEmpty(line))
+                continue;
+
+            if (trimmed[0] == '[')
+            {
+                auto name = trimmed[1..$-1];
+                section = getOrCreateSection(name);
+            }
+            else if (!(section is null))
+            {
+                auto parts = split2(trimmed, "=");
+                if (parts.length != 2)
+                    continue;
+                auto key = strip(parts[0]);
+                if (isNullOrEmpty(key))
+                    continue;
+                auto value = strip(parts[1]);
+                auto item = new IniLine();
+                item.key = key;
+                item.value = value;
+                section.lines ~= item;
+            }
+        }
+    }
+
+    /**
+     * Set the value for specified key in specified section.
+     */
+    IniFile setValue(string sectionName, string key, string value)
+    {
+        auto section = getOrCreateSection(sectionName);
+        section.setValue(key, value);
+        return this;
+    }
+
+    pure override string toString() const
+    {
+        auto result = new OutBuffer();
+        auto first = true;
+        foreach (section; sections)
+        {
+            if (!first)
+                result.put("\n");
+            result.put(section.toString());
+            first = false;
+        }
+        return result.toString();
+    }
+} // class IniFile
 
 //==================================================================
 
@@ -697,14 +875,14 @@ final class TreeNode
     TreeNode[] children;
     string value;
     int level;
-}
+} // class TreeNode
 
 //==================================================================
 
 final class TreeFile
 {
     TreeNode[] roots;
-}
+} // class TreeFile
 
 //==================================================================
 
@@ -745,16 +923,16 @@ final class DatabaseInfo
             db.description = description;
             db.readOnly = readOnly;
             result ~= db;
-        }
+        } // foreach
 
         return result;
-    }
+    } // method parseMenu
 
     override string toString()
     {
         return name;
     }
-}
+} // class DatabaseInfo
 
 //==================================================================
 
@@ -808,8 +986,8 @@ final class VersionInfo
             connectedClients = to!int(lines[2]);
             maxClients = to!int(lines[3]);
         }
-    }
-}
+    } // method parse
+} // class VersionInfo
 
 //==================================================================
 
@@ -825,8 +1003,7 @@ final class SearchParameters
     string sequential;
     string filter;
     bool isUtf;
-
-}
+} // class SearchParameters
 
 //==================================================================
 
@@ -860,7 +1037,7 @@ struct FoundLine
         }
 
         return result;
-    }
+    } // method parseDescriptions
 
     static FoundLine[] parseFull(string[] lines)
     {
@@ -876,7 +1053,7 @@ struct FoundLine
         }
 
         return result;
-    }
+    } // method parseFull
 
     static int[] parseMfn(string[] lines)
     {
@@ -891,8 +1068,8 @@ struct FoundLine
         }
 
         return result;
-    }
-}
+    } // method parseMfn
+} // class FoundLine
 
 //==================================================================
 
@@ -923,13 +1100,13 @@ struct TermInfo
         }
 
         return result;
-    }
+    } // method parse
 
-    string toString()
+    pure string toString() const
     {
         return format("%d#%s", count, text);
     }
-}
+} // class TermInfo
 
 //==================================================================
 
@@ -956,9 +1133,9 @@ struct TermPosting
         }
 
         return result;
-    }
+    } // method parse
 
-    string toString()
+    pure string toString() const
     {
         return to!string(mfn) ~ "#"
             ~ to!string(tag) ~ "#"
@@ -966,7 +1143,7 @@ struct TermPosting
             ~ to!string(count) ~ "#"
             ~ text;
     }
-}
+} // class TermPosting
 
 //==================================================================
 
@@ -980,7 +1157,7 @@ final class TermParameters
     bool reverseOrder; /// Return terms in reverse order?
     string startTerm; /// Start term.
     string format; /// Format specification (optional).
-}
+} // class TermParameters
 
 //==================================================================
 
@@ -999,11 +1176,11 @@ final class TableDefinition
     string sequentialQuery; /// Query for sequential search.
     int[] mfnList; /// Lisf of MFNs to use.
 
-    override string toString()
+    pure override string toString() const
     {
         return table;
     }
-}
+} // class TableDefinition
 
 //==================================================================
 
@@ -1015,10 +1192,13 @@ final class ServerStat
     string[] runningClients;
     int clientCount;
     int totalCommandCount;
-}
+} // class ServerStat
 
 //==================================================================
 
+/**
+ * Client query.
+ */
 final class ClientQuery
 {
     private OutBuffer _buffer;
@@ -1036,20 +1216,26 @@ final class ClientQuery
         newLine();
         newLine();
         newLine();
-    }
+    } // this
 
     ClientQuery add(int value)
     {
         auto text = to!string(value);
         return addUtf(text);
-    }
+    } // method add
+
+    ClientQuery add(bool value)
+    {
+        auto text = value ? "1" : "0";
+        return addUtf(text);
+    } // method add
 
     ClientQuery addAnsi(string text)
     {
         auto bytes = toAnsi(text);
         _buffer.write(bytes);
         return this;
-    }
+    } // method addAnsi
 
     bool addFormat(string text)
     {
@@ -1078,30 +1264,30 @@ final class ClientQuery
         newLine();
 
         return true;
-    }
+    } // method addFormat
 
     ClientQuery addUtf(string text)
     {
         auto bytes = toUtf(text);
         _buffer.write(bytes);
         return this;
-    }
+    } // method addUtf
 
-    ubyte[] encode()
+    ubyte[] encode() const
     {
         auto bytes = _buffer.toBytes();
         auto result = new OutBuffer();
         result.printf("%d\n", bytes.length);
         result.write(bytes);
         return result.toBytes();
-    }
+    } // method encode
 
     ClientQuery newLine()
     {
         _buffer.write(cast(byte)10);
         return this;
-    }
-}
+    } // method newLine
+} // class ClientQuery
 
 //==================================================================
 
@@ -1135,7 +1321,7 @@ final class ServerResponse
         readAnsi();
         readAnsi();
         readAnsi();
-    }
+    } // this
 
     @property bool ok() const nothrow
     {
@@ -1238,17 +1424,23 @@ final class ServerResponse
     {
         return fromUtf(getLine());
     }
-}
+} // class ServerResponse
 
 //==================================================================
 
+/**
+ * Abstract client socket.
+ */
 class ClientSocket
 {
-    abstract ServerResponse TalkToServer(ClientQuery query);
-}
+    abstract ServerResponse talkToServer(const ClientQuery query);
+} // class ClientSocket
 
 //==================================================================
 
+/**
+ * Client socket implementation for TCP/IP v4.
+ */
 final class Tcp4ClientSocket : ClientSocket
 {
     private Connection _connection;
@@ -1258,7 +1450,7 @@ final class Tcp4ClientSocket : ClientSocket
         _connection = connection;
     }
 
-    override ServerResponse TalkToServer(ClientQuery query)
+    override ServerResponse talkToServer(const ClientQuery query)
     {
         auto socket = new Socket(AddressFamily.INET, SocketType.STREAM);
         auto address = new InternetAddress(_connection.host, _connection.port);
@@ -1279,8 +1471,8 @@ final class Tcp4ClientSocket : ClientSocket
         auto result = new ServerResponse(incoming.toBytes());
 
         return result;
-    }
-}
+    } // method talkToServer
+} // class Tcp4ClientSocket
 
 //==================================================================
 
@@ -1298,6 +1490,7 @@ final class Connection
     int queryId;
     string serverVersion;
     int interval;
+    IniFile ini;
     ClientSocket socket;
 
     this()
@@ -1355,29 +1548,31 @@ final class Connection
         if (connected)
             return true;
 
+        AGAIN: queryId = 1;
         clientId = uniform(100_000, 999_999);
-        queryId = 1;
         auto query = new ClientQuery(this, "A");
         query.addAnsi(username).newLine();
         query.addAnsi(password);
         auto response = execute(query);
         if (!response.ok)
-        {
             return false;
-        }
 
         response.getReturnCode();
+        if (response.returnCode == -3337)
+            goto AGAIN;
+
         if (response.returnCode < 0)
-        {
             return false;
-        }
 
         _connected = true;
         serverVersion = response.serverVersion;
         interval = response.interval;
+        auto lines = response.readRemainingAnsiLines();
+        ini = new IniFile();
+        ini.parse(lines);
 
         return true;
-    }
+    } // method connect
 
     /**
      * Create the server database.
@@ -1397,7 +1592,7 @@ final class Connection
         response.checkReturnCode();
 
         return true;
-    }
+    } // method createDatabase
 
     /**
      * Create the dictionary for the database.
@@ -1416,7 +1611,7 @@ final class Connection
         response.checkReturnCode();
 
         return true;
-    }
+    } // method createDictionary
 
     /**
      * Delete the database on the server.
@@ -1435,7 +1630,7 @@ final class Connection
         response.checkReturnCode();
 
         return true;
-    }
+    } // method deleteDatabase
 
     /**
      * Disconnect from the server.
@@ -1451,14 +1646,14 @@ final class Connection
         _connected = false;
 
         return true;
-    }
+    } // method disconnect
 
-    ServerResponse execute(ClientQuery query)
+    ServerResponse execute(const ClientQuery query)
     {
         ServerResponse result;
         try
         {
-            result = socket.TalkToServer(query);
+            result = socket.talkToServer(query);
             queryId++;
         }
         catch (Exception ex)
@@ -1467,7 +1662,7 @@ final class Connection
         }
 
         return result;
-    }
+    } // method execute
 
     /**
      * Format the record by MFN.
@@ -1492,18 +1687,42 @@ final class Connection
         result = strip(result);
 
         return result;
+    } // method formatRecord
+
+    /**
+     * Format virtual record.
+     */
+    string formatRecord(string format, const MarcRecord record)
+    {
+        if (!connected || isNullOrEmpty(format) || (record is null))
+            return "";
+
+        auto db = oneOf(record.database, this.database);
+        auto query = new ClientQuery(this, "G");
+        query.addAnsi(db).newLine();
+        query.addFormat(format);
+        query.add(-2).newLine();
+        query.addUtf(record.encode("\x1F\x1E"));
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode())
+            return "";
+
+        auto result = response.readRemainingUtfText();
+        result = stripRight(result);
+        return result;
     }
 
     /**
      * Get the maximal MFN for the database.
      */
-    int getMaxMfn(string database)
+    int getMaxMfn(string databaseName = "")
     {
         if (!connected)
             return 0;
 
+        auto db = oneOf(databaseName, this.database);
         auto query = new ClientQuery(this, "O");
-        query.addAnsi(database);
+        query.addAnsi(db);
         auto response = execute(query);
         if (!response.ok)
             return 0;
@@ -1511,7 +1730,7 @@ final class Connection
         response.checkReturnCode();
 
         return response.returnCode;
-    }
+    } // method getMaxMfn
 
     /**
      * Get the server version.
@@ -1533,8 +1752,11 @@ final class Connection
         }
 
         return result;
-    }
+    } // method getServerVersion
 
+    /**
+     * List server databases.
+     */
     DatabaseInfo[] listDatabases(string specification = "1..dbnam2.mnu")
     {
         DatabaseInfo[] result;
@@ -1549,7 +1771,7 @@ final class Connection
         result = DatabaseInfo.parseMenu(menu);
 
         return result;
-    }
+    } // method listDatabase
 
     /**
      * List server files by specifiaction.
@@ -1582,7 +1804,7 @@ final class Connection
         }
 
         return result;
-    }
+    } // method listFiles
 
      /**
       * Empty operation. Confirms the client is alive.
@@ -1595,7 +1817,7 @@ final class Connection
         auto query = new ClientQuery(this, "N");
 
         return execute(query).ok;
-    }
+    } // method noOp
 
     /**
      * Parse the connection string.
@@ -1645,7 +1867,7 @@ final class Connection
                     throw new Exception("Unknown key");
             }
         }
-    }
+    } // method parseConnectionString
 
     /**
      * Read the MNU-file from the server.
@@ -1663,7 +1885,7 @@ final class Connection
         result.parse(lines);
 
         return result;
-    }
+    } // method readMenuFile
 
     /**
      * Read the record from the server by MFN.
@@ -1689,16 +1911,22 @@ final class Connection
         result.database = database;
 
         return result;
-    }
+    } // method readRecord
 
+    /**
+     * Read terms from the inverted file.
+     */
     TermInfo[] readTerms(string startTerm, int number)
     {
         auto parameters = new TermParameters();
         parameters.startTerm = startTerm;
         parameters.numberOfTerms = number;
         return readTerms(parameters);
-    }
+    } // method readTerms
 
+    /**
+     * Read terms from the inverted file.
+     */
     TermInfo[] readTerms(TermParameters parameters)
     {
         if (!connected)
@@ -1722,7 +1950,7 @@ final class Connection
         auto result = TermInfo.parse(lines);
 
         return result;
-    }
+    } // method readTerms
 
     /**
      * Read the text file from the server.
@@ -1742,7 +1970,7 @@ final class Connection
         result = irbisToDos(result);
 
         return result;
-    }
+    } // method readTextFile
 
     /**
     * Read the text file from the server as the array of lines.
@@ -1762,7 +1990,7 @@ final class Connection
         auto result = irbisToLines(content);
 
         return result;
-    }
+    } // method readTextLines
 
     /**
     * Recreate dictionary for the database.
@@ -1776,7 +2004,7 @@ final class Connection
         query.addAnsi(database).newLine();
 
         return execute(query).ok;
-    }
+    } // method reloadDictionary
 
     /**
      * Recreate master file for the database.
@@ -1790,7 +2018,7 @@ final class Connection
         query.addAnsi(database).newLine();
 
         return execute(query).ok;
-    }
+    } // method reloadMasterFile
 
     /**
      * Restarting the server (without losing the connected clients).
@@ -1803,7 +2031,7 @@ final class Connection
         auto query = new ClientQuery(this, "+8");
 
         return execute(query).ok;
-    }
+    } // method restartServer
 
     /**
      * Simple search.
@@ -1831,7 +2059,7 @@ final class Connection
         auto result = FoundLine.parseMfn(lines);
 
         return result;
-    }
+    } // method search
 
     /**
      * Extended search.
@@ -1861,7 +2089,52 @@ final class Connection
         auto result = FoundLine.parseFull(lines);
 
         return result;
-    }
+    } // method search
+
+    /**
+     * Search all the records.
+     */
+    int[] searchAll(string expression)
+    {
+        int[] result = [];
+        if (!connected)
+            return result;
+
+        auto firstRecord = 1;
+        auto totalCount = 0;
+        while (true)
+        {
+            auto query = new ClientQuery(this, "K");
+            query.addAnsi(database).newLine();
+            query.addUtf(expression).newLine();
+            query.add(0).newLine();
+            query.add(firstRecord).newLine();
+            auto response = execute(query);
+            if (!response.ok || !response.checkReturnCode())
+                return result;
+            if (firstRecord == 1)
+            {
+                totalCount = response.readInteger();
+                if (totalCount == 0)
+                    break;
+            }
+            else 
+            {
+                response.readInteger(); // eat the line
+            }
+
+            auto lines = response.readRemainingUtfLines();
+            auto found = FoundLine.parseMfn(lines);
+            if (found.length == 0)
+                break;
+            result ~= found;
+            firstRecord += found.length;
+            if (firstRecord >= totalCount)
+                break;
+        } // while
+
+        return result;
+    } // method searchAll
 
     /**
      * Determine the number of entries matching the search expression.
@@ -1887,7 +2160,7 @@ final class Connection
         auto result = response.readInteger();
 
         return result;
-    }
+    } // method searchCount
 
     /**
      * Compose the connection string for current connection.
@@ -1905,7 +2178,7 @@ final class Connection
                 database,
                 workstation
             );
-    }
+    } // method toConnectionString
 
     /**
      * Empty the database.
@@ -1919,7 +2192,7 @@ final class Connection
         query.addAnsi(database).newLine();
 
         return execute(query).ok;
-    }
+    } // method truncateDatabase
 
     /**
      * Unlock the database.
@@ -1933,7 +2206,7 @@ final class Connection
         query.addAnsi(database).newLine();
 
         return execute(query).ok;
-    }
+    } // method unlockDatabase
 
     /**
      * Update server INI file lines for current user.
@@ -1953,8 +2226,35 @@ final class Connection
         }
 
         return execute(query).ok;
-    }
-}
+    } // method updateIniFile
+
+    /**
+     * Write the record to the server.
+     */
+    int writeRecord
+        (
+            const MarcRecord record, 
+            bool lockFlag=false, 
+            bool actualize=true
+         )
+    {
+        if (!connected || (record is null))
+            return 0;
+
+        auto db = oneOf(record.database, this.database);
+        auto query = new ClientQuery(this, "D");
+        query.addAnsi(db).newLine();
+        query.add(lockFlag).newLine();
+        query.add(actualize).newLine();
+        query.addUtf(record.encode()).newLine();
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode())
+            return 0;
+
+        return response.returnCode;
+    } // method writeRecord
+
+} // class Connection
 
 //==================================================================
 

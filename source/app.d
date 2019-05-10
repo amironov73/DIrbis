@@ -1,18 +1,6 @@
 import std.stdio;
 import irbis;
 
-void testEncodings()
-{
-    writeln(toAnsi("Hello"));
-    writeln(fromAnsi([72, 101, 108, 108, 111]));
-    writeln(toUtf("Hello"));
-    writeln(fromUtf([72, 101, 108, 108, 111]));
-    writeln(toAnsi("Привет!"));
-    writeln(fromAnsi([207, 240, 232, 226, 229, 242, 33]));
-    writeln(toUtf("Привет!"));
-    writeln(fromUtf([208, 159, 209, 128, 208, 184, 208, 178, 208, 181, 209, 130, 33]));
-}
-
 void main()
 {
     auto client = new Connection();
@@ -29,6 +17,10 @@ void main()
 
     writeln("Server version=", client.serverVersion);
     writeln("Interval=", client.interval);
+
+    auto ini = client.ini;
+    auto dbnnamecat = ini.getValue("Main", "DBNNAMECAT", "???");
+    writeln("DBNNAMECAT=", dbnnamecat);
 
     auto maxMfn = client.getMaxMfn("IBIS");
     writeln("Max MFN=", maxMfn);
@@ -62,6 +54,19 @@ void main()
     auto found = client.search("\"A=ПУШКИН$\"");
     writeln(found);
 
+    found = client.searchAll("\"K=БЕТОН$\"");
+    writeln(found);
+
     auto terms = client.readTerms("J=", 10);
     writeln(terms);
+
+    record = new MarcRecord();
+    record
+        .add(200)
+        .add('a', "Title")
+        .add('e', "Subtitle")
+        .add('f', "Responsibility");
+    auto format = "v200^a, | : |v200^e, | / |v200^f";
+    auto text = client.formatRecord(format, record);
+    writeln(text);
 }

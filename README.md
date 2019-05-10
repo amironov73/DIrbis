@@ -63,8 +63,8 @@ void main()
     auto files = client.listFiles("3.IBIS.brief.*", "3.IBIS.a*.pft");
     writeln(files);
 
-	foreach(mfn; found) 
-	{
+    foreach(mfn; found) 
+    {
         // Read the record
         auto record = client.readRecord(mfn);
 
@@ -75,6 +75,6 @@ void main()
         // Formatting (at the server)
         auto description = client.formatRecord("@brief", mfn);
         writeln("Description: ", description);
-	}    
+    }    
 }
 ```
