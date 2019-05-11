@@ -1,3 +1,10 @@
+/*
+ * Client for IRBIS64 library system.
+ * Alexey Mironov, 2019.
+ */
+
+//==================================================================
+
 import std.stdio;
 import std.array;
 import std.conv;
@@ -222,14 +229,14 @@ final class SubField
     /// Constructor.
     this()
     {
-    }
+    } // constructor
 
     /// Constructor.
     this(char code, string value)
     {
         this.code = code;
         this.value = value;
-    }
+    } // constructor
 
     /**
      * Deep clone of the subfield.
@@ -237,7 +244,7 @@ final class SubField
     SubField clone() const
     {
         return new SubField(code, value);
-    }
+    } // method clone
 
     /**
      * Decode the subfield from protocol representation.
@@ -246,7 +253,7 @@ final class SubField
     {
         code = text[0];
         value = text[1..$];
-    }
+    } // method decode
 
     pure override string toString() const
     {
@@ -279,7 +286,7 @@ final class RecordField
         this.tag = tag;
         this.value = value;
         this.subfields = new SubField[0];
-    }
+    } // constructor
 
     /**
      * Append subfield with specified code and value.
@@ -289,7 +296,7 @@ final class RecordField
         auto subfield = new SubField(code, value);
         subfields ~= subfield;
         return this;
-    }
+    } // method add
 
     /**
      * Clear the field (remove the value and all the subfields).
@@ -299,12 +306,12 @@ final class RecordField
         value = "";
         subfields = [];
         return this;
-    }
+    } // method clear
 
     /**
      * Clone the field.
      */
-    RecordField clone()
+    RecordField clone() const
     {
         auto result = new RecordField(tag, value);
         foreach (subfield; subfields)
@@ -312,7 +319,7 @@ final class RecordField
             result.subfields ~= subfield.clone();
         }
         return result;
-    }
+    } // method clone
 
     /**
      * Decode body of the field from protocol representation.
@@ -334,7 +341,7 @@ final class RecordField
                 subfields ~= subfield;
             }
         }
-    }
+    } // method decodeBody
 
     /**
      * Decode the field from the protocol representation.
@@ -344,7 +351,7 @@ final class RecordField
         auto parts = split2(text, "#");
         tag = parseInt(parts[0]);
         decodeBody(parts[1]);
-    }
+    } // method decode
 
     /**
      * Get slice of the embedded fields.
@@ -353,7 +360,7 @@ final class RecordField
     {
         // TODO implement
         return [];
-    }
+    } // method getEmbeddedFields
 
     /**
      * Get first subfield with given code.
@@ -364,7 +371,7 @@ final class RecordField
             if (sameChar(subfield.code, code))
                 return subfield;
         return null;
-    }
+    } // method getFirstSubfield
 
     /**
      * Get value of first subfield with given code.
@@ -375,7 +382,7 @@ final class RecordField
             if (sameChar(subfield.code, code))
                 return subfield.value;
         return null;
-    }
+    } // method getFirstFieldValue
 
     /**
      * Insert the subfield at specified position.
@@ -384,7 +391,7 @@ final class RecordField
     {
         // TODO implement
         return this;
-    }
+    } // method insertAt
 
     /**
      * Remove subfield at specified position.
@@ -393,16 +400,16 @@ final class RecordField
     {
         // TODO implement
         return this;
-    }
+    } // method removeAt
 
     /**
      * Remove all subfields with specified code.
      */
-    RecordField removeSubfield(char code)
+    RecordField removeSubField(char code)
     {
         // TODO implement
         return this;
-    }
+    } // method removeSubField
 
     pure override string toString() const
     {
@@ -415,7 +422,7 @@ final class RecordField
             result.put(subfield.toString());
         }
         return result.toString();
-    }
+    } // method toString
 
     /**
      * Verify the field.
@@ -434,7 +441,8 @@ final class RecordField
         }
 
         return result;
-    }
+    } // method verify
+
 } // class RecordField
 
 //==================================================================
@@ -454,7 +462,7 @@ final class MarcRecord
     this()
     {
         fields = new RecordField[0];
-    }
+    } // constructor
 
     /**
      * Add the field to back of the record.
@@ -464,17 +472,17 @@ final class MarcRecord
         auto field = new RecordField(tag, value);
         fields ~= field;
         return field;
-    }
+    } // method add
 
     /**
      * Add the field if it is non-empty.
      */
     MarcRecord addNonEmpty(int tag, string value)
     {
-        if (value.length != 0)
+        if (!isNullOrEmpty(value))
             add(tag, value);
         return this;
-    }
+    } // method addNonEmpty
 
     /**
      * Clear the record by removing all the fields.
@@ -483,7 +491,7 @@ final class MarcRecord
     {
         fields = [];
         return this;
-    }
+    } // method clear
 
     /**
      * Decode the record from the protocol representation.
@@ -504,7 +512,7 @@ final class MarcRecord
                 fields ~= field;
             }
         }
-    }
+    } // method decode
 
     /**
      * Encode the record to the protocol representation.
@@ -526,13 +534,13 @@ final class MarcRecord
         }
 
         return result.toString();
-    }
+    } // method encode
 
     /**
      * Get value of the field with given tag
      * (or subfield if code given).
      */
-    string fm(int tag, char code=0)
+    pure string fm(int tag, char code=0) const
     {
         foreach (field; fields)
         {
@@ -556,13 +564,13 @@ final class MarcRecord
         }
 
         return null;
-    }
+    } // method fm
 
     /**
      * Get slice of values of the fields with given tag
      * (or subfield values if code given).
      */
-    string[] fma(int tag, char code=0)
+    pure string[] fma(int tag, char code=0)
     {
         string[] result;
         foreach (field; fields)
@@ -592,7 +600,7 @@ final class MarcRecord
     /**
      * Get field by tag and occurrence number.
      */
-    RecordField getField(int tag, int occurrence=0)
+    pure RecordField getField(int tag, int occurrence=0)
     {
         foreach (field; fields)
         {
@@ -605,12 +613,12 @@ final class MarcRecord
         }
 
         return null;
-    }
+    } // method getField
 
     /**
      * Get slice of fields with given tag.
      */
-    RecordField[] getFields(int tag)
+    pure RecordField[] getFields(int tag)
     {
         RecordField[] result;
         foreach (field; fields)
@@ -620,7 +628,7 @@ final class MarcRecord
         }
 
         return result;
-    }
+    } // method getFields
 
     /**
      * Insert the field at given index.
@@ -637,7 +645,7 @@ final class MarcRecord
     @property pure bool isDeleted() const
     {
         return (status & 3) != 0;
-    }
+    } // method isDeleted
 
     /**
      * Remove field at specified index.
@@ -646,16 +654,20 @@ final class MarcRecord
     {
         // TODO implement
         return this;
-    }
+    } // method removeAt
 
     pure override string toString() const
     {
         return encode("\n");
-    }
+    } // method toString
+
 } // class MarcRecord
 
 //==================================================================
 
+/**
+ * Half-parsed record.
+ */
 final class RawRecord
 {
     string database; /// Database name.
@@ -663,6 +675,55 @@ final class RawRecord
     int versionNumber; /// Version number
     int status; /// Status.
     string[] fields; /// Slice of fields.
+
+    /**
+     * Decode the text representation.
+     */
+    bool decode(string[] lines)
+    {
+        if (lines.length < 3)
+            return false;
+
+        const firstLine = split2(lines[0], "#");
+        if (firstLine.length != 2)
+            return false;
+
+        mfn = parseInt(firstLine[0]);
+        status = parseInt(firstLine[1]);
+
+        const secondLine = split2(lines[1], "#");
+        if (secondLine.length != 2)
+            return false;
+
+        versionNumber = parseInt(secondLine[1]);
+        fields = lines[2..$];
+
+        return true;
+    } // method decode
+
+    /**
+     * Encode to the text representation.
+     */
+    pure string encode(string delimiter = IRBIS_DELIMITER) const
+    {
+        auto result = new OutBuffer();
+        result.put(to!string(mfn));
+        result.put("#");
+        result.put(to!string(status));
+        result.put(delimiter);
+        result.put("0#");
+        result.put(to!int(versionNumber));
+        result.put(delimiter);
+
+        foreach (field; fields)
+        {
+            result.put(field);
+            result.put(delimiter);
+        }
+
+        return result.toString();
+    } // method encode
+
 } // class RawRecord
 
 //==================================================================
@@ -2044,6 +2105,36 @@ final class Connection
     } // method readMenuFile
 
     /**
+     * Read and half-decode the record.
+     */
+    RawRecord readRawRecord(int mfn, int versionNumber=0)
+    {
+        if (!connected)
+            return null;
+
+        auto query = new ClientQuery(this, "C");
+        query.addAnsi(database).newLine();
+        query.add(mfn).newLine();
+        query.add(versionNumber).newLine();
+
+        auto response = execute(query);
+        if (!response.ok)
+            return null;
+
+        response.checkReturnCode();
+
+        auto result = new RawRecord();
+        auto lines = response.readRemainingUtfLines();
+        result.decode(lines);
+        result.database = database;
+
+        if (versionNumber != 0)
+            unlockRecords(database, [mfn]);
+
+        return result;
+    } // method readRawRecord
+
+    /**
      * Read the record from the server by MFN.
      */
     MarcRecord readRecord(int mfn, int versionNumber=0)
@@ -2066,8 +2157,57 @@ final class Connection
         result.decode(lines);
         result.database = database;
 
+        if (versionNumber != 0)
+            unlockRecords(database, [mfn]);
+
         return result;
     } // method readRecord
+
+    /**
+     * Read some records.
+     */
+    MarcRecord[] readRecords(int[] mfnList)
+    {
+        MarcRecord[] result;
+
+        if (!connected || (mfnList.length == 0))
+            return result;
+
+        if (mfnList.length == 1)
+        {
+            auto record = readRecord(mfnList[0]);
+            if (record !is null)
+                result ~= record;
+        }
+        else 
+        {
+            auto query = new ClientQuery(this, "G");
+            query.addAnsi(database).newLine();
+            query.addAnsi(ALL_FORMAT).newLine();
+            query.add(cast(int)mfnList.length).newLine();
+            foreach(mfn; mfnList)
+                query.add(mfn).newLine();
+
+            auto response = execute(query);
+            if (!response.ok || !response.checkReturnCode())
+                return result;
+
+            auto lines = response.readRemainingUtfLines();
+            foreach(line; lines) 
+                if (!isNullOrEmpty(line))
+                {
+                    auto parts = split2(line, "#");
+                    parts = split(parts[1], ALT_DELIMITER);
+                    parts = parts[1..$];
+                    auto record = new MarcRecord();
+                    record.decode(parts);
+                    record.database = database;
+                    result ~= record;
+                }
+        }
+
+        return result;
+    } // method readRecords
 
     /**
      * Read terms from the inverted file.
@@ -2190,7 +2330,7 @@ final class Connection
     } // method restartServer
 
     /**
-     * Simple search.
+     * Simple search for records (no more than 32k records).
      */
     int[] search(string expression)
     {
@@ -2218,7 +2358,7 @@ final class Connection
     } // method search
 
     /**
-     * Extended search.
+     * Extended search for records (no more than 32k records).
      */
     FoundLine[] search(const SearchParameters parameters)
     {
@@ -2248,7 +2388,7 @@ final class Connection
     } // method search
 
     /**
-     * Search all the records.
+     * Search all the records (even if more than 32k records).
      */
     int[] searchAll(string expression)
     {
@@ -2293,7 +2433,7 @@ final class Connection
     } // method searchAll
 
     /**
-     * Determine the number of entries matching the search expression.
+     * Determine the number of records matching the search expression.
      */
     int searchCount(string expression)
     {
@@ -2317,6 +2457,52 @@ final class Connection
 
         return result;
     } // method searchCount
+
+    /**
+     * Search for recods and read found ones
+     * (no more than 32k records).
+     */
+    MarcRecord[] searchRead(string expression, int limit=0)
+    {
+        MarcRecord[] result;
+        if (!connected || isNullOrEmpty(expression))
+            return result;
+        
+        auto parameters = new SearchParameters();
+        parameters.expression = expression;
+        parameters.format = ALL_FORMAT;
+        parameters.numberOfRecords = limit;
+        auto found = search(parameters);
+        if ((found is null) || (found.length == 0))
+            return result;
+
+        foreach (item; found)
+        {
+            auto lines = split(item.description, ALT_DELIMITER);
+            if (lines.length == 0)
+                continue;
+            lines = lines[1..$];
+            if (lines.length == 0)
+                continue;
+            auto record = new MarcRecord();
+            record.decode(lines);
+            record.database = database;
+            result ~= record;
+        }
+
+        return result;
+    } // method searchRead
+
+    /**
+     * Search and read for single record satisfying the expression.
+     * If many records found, any of them will be returned.
+     * If no records found, null will be returned.
+     */
+    MarcRecord searchSingleRecord(string expression)
+    {
+        auto found = searchRead(expression, 1);
+        return found.length != 0 ? found[0] : null;
+    } // method searchSingleRecord
 
     /**
      * Compose the connection string for current connection.
@@ -2351,6 +2537,25 @@ final class Connection
     } // method truncateDatabase
 
     /**
+     * Restore the deleted record.
+     * If the record isn't deleted, no action taken.
+     */
+    MarcRecord undeleteRecord(int mfn)
+    {
+        auto result = readRecord(mfn);
+        if (result is null)
+            return result;
+
+        if (result.isDeleted)
+        {
+            result.status &= ~LOGICALLY_DELETED;
+            writeRecord(result);
+        }
+
+        return result;
+    } // method undeleteRecord
+
+    /**
      * Unlock the database.
      */
     bool unlockDatabase(string database)
@@ -2365,6 +2570,26 @@ final class Connection
     } // method unlockDatabase
 
     /**
+     * Unlock the slice of records.
+     */
+    bool unlockRecords(string databaseName, int[] mfnList)
+    {
+        if (!connected)
+            return false;
+
+        if (mfnList.length == 0)
+            return true;
+
+        const db = pickOne(databaseName, this.database);
+        auto query = new ClientQuery(this, "Q");
+        query.addAnsi(db).newLine();
+        foreach(mfn; mfnList)
+            query.add(mfn).newLine();
+
+        return execute(query).ok;
+    } // method unlockRecords
+
+    /**
      * Update server INI file lines for current user.
      */
     bool updateIniFile(string[] lines)
@@ -2377,22 +2602,20 @@ final class Connection
 
         auto query = new ClientQuery(this, "8");
         foreach (line; lines)
-        {
             query.addAnsi(line).newLine();
-        }
 
         return execute(query).ok;
     } // method updateIniFile
 
     /**
-     * Write the record to the server.
+     * Write the raw record to the server.
      */
-    int writeRecord
+    int writeRawRecord
         (
-            const MarcRecord record, 
-            bool lockFlag=false, 
+            const RawRecord record,
+            bool lockFlag=false,
             bool actualize=true
-         )
+        )
     {
         if (!connected || (record is null))
             return 0;
@@ -2408,7 +2631,58 @@ final class Connection
             return 0;
 
         return response.returnCode;
+    } // method writeRawRecord
+
+    /**
+     * Write the record to the server.
+     */
+    int writeRecord
+        (
+            MarcRecord record, 
+            bool lockFlag=false, 
+            bool actualize=true,
+            bool dontParse=false
+         )
+    {
+        if (!connected || (record is null))
+            return 0;
+
+        auto db = pickOne(record.database, this.database);
+        auto query = new ClientQuery(this, "D");
+        query.addAnsi(db).newLine();
+        query.add(lockFlag).newLine();
+        query.add(actualize).newLine();
+        query.addUtf(record.encode()).newLine();
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode())
+            return 0;
+
+        if (!dontParse)
+        {
+            record.fields = [];
+            auto temp = response.readRemainingUtfLines();
+            auto lines = [temp[0]];
+            lines ~= split(temp[1], SHORT_DELIMITER);
+            record.decode(lines);
+            record.database = database;
+        }
+
+        return response.returnCode;
     } // method writeRecord
+
+    /**
+     * Write the text file to the server.
+     */
+    bool writeTextFile(string specification)
+    {
+        if (!connected)
+            return false;
+
+        auto query = new ClientQuery(this, "L");
+        query.addAnsi(specification);
+
+        return execute(query).ok;
+    } // method writeTextFile
 
 } // class Connection
 

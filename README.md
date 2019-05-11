@@ -44,7 +44,7 @@ void main()
     writeln("DBNNAMECAT=", dbnnamecat);
     
     // Search for books written by Byron
-    auto found = client.search("\"A=Byron, George$\"");
+    auto found = client.search(`"A=Byron, George$"`);
     writeln("Records found: ", found);
 
     // get database list from the server

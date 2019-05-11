@@ -48,13 +48,13 @@ void main()
     auto files = client.listFiles("3.IBIS.brief.*", "3.IBIS.a*.pft");
     writeln(files);
 
-    auto count = client.searchCount("\"A=ПУШКИН$\"");
+    auto count = client.searchCount(`"A=ПУШКИН$"`);
     writeln("COUNT=", count);
 
-    auto found = client.search("\"A=ПУШКИН$\"");
+    auto found = client.search(`"A=ПУШКИН$"`);
     writeln(found);
 
-    found = client.searchAll("\"K=БЕТОН$\"");
+    found = client.searchAll(`"K=БЕТОН$"`);
     writeln(found);
 
     auto terms = client.readTerms("J=", 10);
@@ -69,4 +69,9 @@ void main()
     auto format = "v200^a, | : |v200^e, | / |v200^f";
     auto text = client.formatRecord(format, record);
     writeln(text);
+
+    auto records = client.searchRead(`"K=БЕТОН"`);
+    foreach (rec; records)
+        write(rec.fm(200, 'a'), " ||| ");
+    writeln();
 }
