@@ -1,6 +1,7 @@
 /*
  * Client for IRBIS64 library system.
  * Alexey Mironov, 2019.
+ * MIT License.
  */
 
 //==================================================================
@@ -176,7 +177,7 @@ pure string[] split2(string text, string delimiter)
         return [text];
     }
 
-    return [text[0..index], text[index + 1..$]];
+    return [to!string(text[0..index]), to!string(text[index + 1..$])];
 }
 
 /// Determines whether the string is null or empty.
@@ -1032,7 +1033,7 @@ final class IniFile
         auto section = getOrCreateSection(sectionName);
         section.setValue(key, value);
         return this;
-    }
+    } // method setValue
 
     pure override string toString() const
     {
@@ -1046,7 +1047,8 @@ final class IniFile
             first = false;
         }
         return result.toString();
-    }
+    } // method toString
+
 } // class IniFile
 
 //==================================================================
@@ -1059,6 +1061,31 @@ final class TreeNode
     TreeNode[] children; /// Slice of children.
     string value; /// Value of the node.
     int level; /// Level of the node.
+
+    /**
+     * Constructor.
+     */
+    this(string value="")
+    {
+        this.value = value;
+    } // constructor
+
+    /**
+     * Add child node with specified value.
+     */
+    TreeNode add(string value)
+    {
+        auto child = new TreeNode(value);
+        child.level = this.level + 1;
+        children ~= child;
+        return this;
+    } // method add
+
+    pure override string toString() const
+    {
+        return value;
+    } // method toString
+
 } // class TreeNode
 
 //==================================================================
@@ -1069,11 +1096,106 @@ final class TreeNode
 final class TreeFile
 {
     TreeNode[] roots; /// Slice of root nodes.
+
+    private static void arrange1(TreeNode[] list, int level)
+    {
+        int count = cast(int)list.length;
+        auto index = 0;
+        while (index < count)
+        {
+            const next = arrange2(list, level, index, count);
+            index = next;
+        }
+    } // method arrange1
+
+    private static int arrange2(TreeNode[] list, int level, int index, int count)
+    {
+        int next = index + 1;
+        const level2 = level + 1;
+        auto parent = list[index];
+        while (next < count)
+        {
+            auto child = list[next];
+            if (child.level < level)
+                break;
+            if (child.level == level2)
+                parent.children ~= child;
+            next++;
+        }
+
+        return next;
+    } // method arrange2
+
+    private static int countIndent(string text)
+    {
+        auto result = 0;
+        const length = text.length;
+        for (int i = 0; i < length; i++)
+            if (text[i] == '\t')
+                result++;
+            else
+                break;
+        return result;
+    } // method countIndent
+
+    /**
+     * Add root node.
+     */
+    TreeFile addRoot(string value)
+    {
+        auto root = new TreeNode(value);
+        roots ~= root;
+        return this;
+    } // method addRoot
+
+    /**
+     * Parse the text representation.
+     */
+    void parse(string[] lines)
+    {
+        if (lines.length == 0)
+            return;
+
+        TreeNode[] list = [];
+        int currentLevel = 0;
+        auto firstLine = lines[0];
+        if (isNullOrEmpty(firstLine) || (countIndent(firstLine) != 0))
+            throw new Exception("Wrong TRE");
+
+        list ~= new TreeNode(firstLine);
+        foreach (line; lines)
+        {
+            if (isNullOrEmpty(line))
+                continue;
+
+            auto level = countIndent(line);
+            if (level > (currentLevel + 1))
+                throw new Exception("Wrong TRE");
+            
+            currentLevel = level;
+            auto node = new TreeNode(line[level..$]);
+            node.level = level;
+            list ~= node;
+        } // foreach
+
+        int maxLevel = 0;
+        foreach (item; list)
+            if (item.level > maxLevel)
+                maxLevel = item.level;
+        
+        for (int level = 0; level < maxLevel; level++)
+            arrange1(list, level);
+
+        foreach (item; list)
+            if (item.level == 0)
+                roots ~= item;
+    } // method parse
+
 } // class TreeFile
 
 //==================================================================
 
-/*
+/**
  * Information about IRBIS database.
  */
 final class DatabaseInfo
@@ -1146,7 +1268,7 @@ final class VersionInfo
     }
 
     /**
-     * Parse the server answer.
+     * Parse the server response.
      */
     void parse(string[] lines) {
         if (lines.length == 3)
@@ -1185,11 +1307,18 @@ final class SearchParameters
 
 //==================================================================
 
+/**
+ * Information about found record.
+ * Used in search method.
+ */
 struct FoundLine
 {
-    int mfn;
-    string description;
+    int mfn; /// Record MFN.
+    string description; /// Description (optional).
 
+    /**
+     * Parse one text line.
+     */
     void parse(string text)
     {
         auto parts = split2(text, "#");
@@ -1198,9 +1327,13 @@ struct FoundLine
             description = parts[1];
     }
 
+    /**
+     * Parse server response for descriptions.
+     */
     static string[] parseDesciptions(string[] lines)
     {
         string[] result;
+        reserve(result, lines.length);
         foreach(line; lines)
         {
             if (line.length != 0)
@@ -1208,7 +1341,7 @@ struct FoundLine
                 auto index = indexOf(line, '#');
                 if (index >= 0)
                 {
-                    auto description = line[index+1..$];
+                    auto description = to!string(line[index+1..$]);
                     result ~= description;
                 }
             }
@@ -1217,9 +1350,13 @@ struct FoundLine
         return result;
     } // method parseDescriptions
 
+    /**
+     * Parse the server response for all the information.
+     */
     static FoundLine[] parseFull(string[] lines)
     {
         FoundLine[] result;
+        reserve(result, lines.length);
         foreach(line; lines)
         {
             if (line.length != 0)
@@ -1233,9 +1370,13 @@ struct FoundLine
         return result;
     } // method parseFull
 
+    /**
+     * Parse the server response for MFN only.
+     */
     static int[] parseMfn(string[] lines)
     {
         int[] result;
+        reserve(result, lines.length);
         foreach(line; lines)
         {
             if (line.length != 0)
@@ -1247,6 +1388,7 @@ struct FoundLine
 
         return result;
     } // method parseMfn
+
 } // class FoundLine
 
 //==================================================================
@@ -1257,8 +1399,11 @@ struct FoundLine
 struct TermInfo
 {
     int count; /// link count
-    string text; // search term text
+    string text; /// search term text
 
+    /**
+     * Parse the server response for terms.
+     */
     static TermInfo[] parse(string[] lines)
     {
         TermInfo[] result;
@@ -1283,7 +1428,8 @@ struct TermInfo
     pure string toString() const
     {
         return format("%d#%s", count, text);
-    }
+    } // method toString
+
 } // class TermInfo
 
 //==================================================================
@@ -1293,12 +1439,15 @@ struct TermInfo
  */
 struct TermPosting
 {
-    int mfn;
-    int tag;
-    int occurrence;
-    int count;
-    string text;
+    int mfn; /// Record MFN.
+    int tag; /// Field tag.
+    int occurrence; /// Field occurrence.
+    int count; /// Term count.
+    string text; /// Text value.
 
+    /**
+     * Parse the server response.
+     */
     static TermInfo[] parse(string[] lines)
     {
         TermInfo[] result;
@@ -1363,13 +1512,89 @@ final class TableDefinition
 //==================================================================
 
 /**
+ * Information about connected client
+ * (not necessarily current client).
+ */
+final class ClientInfo
+{
+    string number; /// Sequential number.
+    string ipAddress; /// Clien IP address.
+    string port; /// Port number.
+    string name; /// User login.
+    string id; /// Client identifier (just unique number).
+    string workstation; /// Client software kind.
+    string registered; /// Registration moment.
+    string acknowledged; /// Last acknowledge moment.
+    string lastCommand; /// Last command issued.
+    string commandNumber; /// Last command number.
+
+    /**
+     * Parse the server response.
+     */
+    void parse(string[] lines)
+    {
+        number = lines[0];
+        ipAddress = lines[1];
+        port = lines[2];
+        name = lines[3];
+        id = lines[4];
+        workstation = lines[5];
+        registered = lines[6];
+        acknowledged = lines[7];
+        lastCommand = lines[8];
+        commandNumber = lines[9];
+    } // method parse
+
+    pure override string toString() const
+    {
+        return ipAddress;
+    } // method toString
+}
+
+//==================================================================
+
+/**
  * IRBIS64 server working statistics.
  */
 final class ServerStat
 {
-    string[] runningClients;
-    int clientCount;
-    int totalCommandCount;
+    ClientInfo[] runningClients; /// Slice of running clients.
+    int clientCount; /// Actual client count.
+    int totalCommandCount; /// Total command count.
+
+    /**
+     * Parse the server response.
+     */
+    void parse(string[] lines)
+    {
+        totalCommandCount = parseInt(lines[0]);
+        clientCount = parseInt(lines[1]);
+        auto linesPerClient = parseInt(lines[2]);
+        lines = lines[3..$];
+        for(int i = 0; i < clientCount; i++)
+        {
+            auto client = new ClientInfo();
+            client.parse(lines);
+            runningClients ~= client;
+            lines = lines[linesPerClient + 1..$];
+        } // for
+    } // method parse
+
+    pure override string toString() const
+    {
+        auto result = new OutBuffer();
+        result.put(to!string(totalCommandCount));
+        result.put("\n");
+        result.put(to!string(clientCount));
+        result.put("\n8\n");
+        foreach(client; runningClients) 
+        {
+            result.put(client.toString());
+            result.put("\n");
+        }
+        return result.toString();
+    } // method toString
+
 } // class ServerStat
 
 //==================================================================
@@ -1486,6 +1711,8 @@ final class ServerResponse
     private ubyte[] _buffer;
     private ptrdiff_t _offset;
 
+    Connection connection; /// connection used
+
     string command; /// Command code.
     int clientId; /// Client id.
     int queryId; /// Query id.
@@ -1563,6 +1790,7 @@ final class ServerResponse
     int getReturnCode()
     {
         returnCode = readInteger();
+        connection.lastError = returnCode;
         return returnCode;
     }
 
@@ -1704,6 +1932,7 @@ final class Connection
     int interval; /// Auto-ack interval.
     IniFile ini; /// INI-file.
     ClientSocket socket; /// Socket.
+    int lastError; /// Last error code.
 
     /// Constructor.
     this()
@@ -1867,14 +2096,17 @@ final class Connection
      */
     ServerResponse execute(const ClientQuery query)
     {
+        lastError = 0;
         ServerResponse result;
         try
         {
             result = socket.talkToServer(query);
+            result.connection = this;
             queryId++;
         }
         catch (Exception ex)
         {
+            lastError = -100_000;
             result = new ServerResponse([]);
         }
 
@@ -1950,6 +2182,26 @@ final class Connection
     } // method getMaxMfn
 
     /**
+     * Get server running statistics.
+     */
+    ServerStat getServerStat()
+    {
+        auto result = new ServerStat();
+        if (!connected)
+            return result;
+
+        auto query = new ClientQuery(this, "+1");
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode())
+            return result;
+
+        auto lines = response.readRemainingAnsiLines();
+        result.parse(lines);
+
+        return result;
+    } // method getServerStat
+
+    /**
      * Get the server version.
      */
     VersionInfo getServerVersion()
@@ -1991,7 +2243,7 @@ final class Connection
     } // method listDatabase
 
     /**
-     * List server files by specifiaction.
+     * List server files by specification.
      */
     string[] listFiles(string[] specifications ...)
     {
@@ -2273,7 +2525,7 @@ final class Connection
     */
     string[] readTextLines(string specification)
     {
-        if (!connected)
+        if (!connected || isNullOrEmpty(specification))
             return [];
 
         auto query = new ClientQuery(this, "L");
@@ -2287,6 +2539,21 @@ final class Connection
 
         return result;
     } // method readTextLines
+
+    /**
+     * Read TRE-file from the server.
+     */
+    TreeFile readTreeFile(string specification)
+    {
+        auto lines = readTextLines(specification);
+        if (lines.length == 0)
+            return null;
+
+        auto result = new TreeFile();
+        result.parse(lines);
+
+        return result;
+    }
 
     /**
     * Recreate dictionary for the database.

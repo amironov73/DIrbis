@@ -30,6 +30,9 @@ void main()
     auto serverVersion = client.getServerVersion();
     writeln("Organization:", serverVersion.organization);
 
+    auto stat = client.getServerStat();
+    write(stat);
+
     auto databases = client.listDatabases();
     writeln(databases);
 
