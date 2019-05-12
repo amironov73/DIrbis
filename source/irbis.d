@@ -6,12 +6,13 @@
 
 //==================================================================
 
-import std.stdio;
+import std.algorithm: canFind;
 import std.array;
 import std.conv;
 import std.encoding: transcode, Windows1251String;
 import std.random: uniform;
 import std.socket;
+import std.stdio;
 import std.string;
 import std.outbuffer;
 
@@ -1698,6 +1699,7 @@ final class ClientQuery
         _buffer.write(cast(byte)10);
         return this;
     } // method newLine
+
 } // class ClientQuery
 
 //==================================================================
@@ -1756,11 +1758,7 @@ final class ServerResponse
     bool checkReturnCode(int[] allowed ...)
     {
         if (getReturnCode() < 0)
-        {
-            // TODO implement
-            // if (indexOf(allowed, returnCode) < 0)
-                return false;
-        }
+            return canFind(allowed, returnCode);
         return true;
     }
 
@@ -1956,7 +1954,7 @@ final class Connection
     bool actualizeDatabase(string database)
     {
         return actualizeRecord(database, 0);
-    }
+    } // method actualizeDatabase
 
     /**
      * Actualize the record with the given MFN.
@@ -1966,16 +1964,12 @@ final class Connection
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "F");
+        auto query = new ClientQuery (this, "F");
         query.addAnsi(database).newLine();
         query.add(mfn).newLine();
         auto response = execute(query);
-        if (!response.ok)
-            return false;
-        response.checkReturnCode();
-
-        return true;
-    }
+        return response.ok && response.checkReturnCode();
+    } // method actualizeRecord
 
     /**
      * Establish the server connection.
@@ -2007,7 +2001,6 @@ final class Connection
         auto lines = response.readRemainingAnsiLines();
         ini = new IniFile();
         ini.parse(lines);
-
         return true;
     } // method connect
 
@@ -2030,11 +2023,7 @@ final class Connection
         query.addAnsi(description).newLine();
         query.add(cast(int)readerAccess).newLine();
         auto response = execute(query);
-        if (!response.ok)
-            return false;
-        response.checkReturnCode();
-
-        return true;
+        return response.ok && response.checkReturnCode();
     } // method createDatabase
 
     /**
@@ -2048,12 +2037,7 @@ final class Connection
         auto query = new ClientQuery(this, "Z");
         query.addAnsi(database).newLine();
         auto response = execute(query);
-        if (!response.ok)
-            return false;
-
-        response.checkReturnCode();
-
-        return true;
+        return response.ok && response.checkReturnCode();
     } // method createDictionary
 
     /**
@@ -2067,12 +2051,7 @@ final class Connection
         auto query = new ClientQuery(this, "W");
         query.addAnsi(database).newLine();
         auto response = execute(query);
-        if (!response.ok)
-            return false;
-
-        response.checkReturnCode();
-
-        return true;
+        return response.ok && response.checkReturnCode();
     } // method deleteDatabase
 
     /**
@@ -2087,7 +2066,6 @@ final class Connection
         query.addAnsi(username);
         execute(query);
         _connected = false;
-
         return true;
     } // method disconnect
 
@@ -2125,13 +2103,13 @@ final class Connection
         query.addAnsi(database).newLine();
         if (!query.addFormat(text))
             return "";
+
         query.add(1).newLine();
         query.add(mfn).newLine();
         auto response = execute(query);
-        if (!response.ok)
+        if (!response.ok || !response.checkReturnCode())
             return "";
 
-        response.checkReturnCode();
         auto result = response.readRemainingUtfText();
         result = strip(result);
 
@@ -2173,10 +2151,8 @@ final class Connection
         auto query = new ClientQuery(this, "O");
         query.addAnsi(db);
         auto response = execute(query);
-        if (!response.ok)
+        if (!response.ok || !response.checkReturnCode())
             return 0;
-
-        response.checkReturnCode();
 
         return response.returnCode;
     } // method getMaxMfn
@@ -2197,7 +2173,6 @@ final class Connection
 
         auto lines = response.readRemainingAnsiLines();
         result.parse(lines);
-
         return result;
     } // method getServerStat
 
@@ -2212,9 +2187,8 @@ final class Connection
         {
             auto query = new ClientQuery(this, "1");
             auto response = execute(query);
-            if (response.ok)
+            if (response.ok && response.checkReturnCode())
             {
-                response.checkReturnCode();
                 auto lines = response.readRemainingAnsiLines();
                 result.parse(lines);
             }
@@ -2238,7 +2212,6 @@ final class Connection
             return result;
 
         result = DatabaseInfo.parseMenu(menu);
-
         return result;
     } // method listDatabase
 
@@ -2284,7 +2257,6 @@ final class Connection
             return false;
 
         auto query = new ClientQuery(this, "N");
-
         return execute(query).ok;
     } // method noOp
 
@@ -2352,7 +2324,6 @@ final class Connection
 
         auto result = new MenuFile();
         result.parse(lines);
-
         return result;
     } // method readMenuFile
 
@@ -2370,10 +2341,8 @@ final class Connection
         query.add(versionNumber).newLine();
 
         auto response = execute(query);
-        if (!response.ok)
+        if (!response.ok || !response.checkReturnCode(-201, -600, -602, -603))
             return null;
-
-        response.checkReturnCode();
 
         auto result = new RawRecord();
         auto lines = response.readRemainingUtfLines();
@@ -2399,10 +2368,8 @@ final class Connection
         query.add(mfn).newLine();
         query.add(versionNumber).newLine();
         auto response = execute(query);
-        if (!response.ok)
+        if (!response.ok || !response.checkReturnCode(-201, -600, -602, -603))
             return null;
-
-        response.checkReturnCode();
 
         auto result = new MarcRecord();
         auto lines = response.readRemainingUtfLines();
@@ -2489,14 +2456,11 @@ final class Connection
         auto prepared = prepareFormat(parameters.format);
         query.addAnsi(prepared).newLine();
         auto response = execute(query);
-        if (!response.ok)
+        if (!response.ok || !response.checkReturnCode(-202, -203, -204))
             return [];
-
-        response.checkReturnCode(-202, -203, -204);
 
         auto lines = response.readRemainingUtfLines();
         auto result = TermInfo.parse(lines);
-
         return result;
     } // method readTerms
 
@@ -2516,7 +2480,6 @@ final class Connection
 
         auto result = response.readAnsi();
         result = irbisToUnix(result);
-
         return result;
     } // method readTextFile
 
@@ -2536,7 +2499,6 @@ final class Connection
 
         auto content = response.readAnsi();
         auto result = irbisToLines(content);
-
         return result;
     } // method readTextLines
 
@@ -2551,7 +2513,6 @@ final class Connection
 
         auto result = new TreeFile();
         result.parse(lines);
-
         return result;
     }
 
@@ -2565,7 +2526,6 @@ final class Connection
 
         auto query = new ClientQuery(this, "Y");
         query.addAnsi(database).newLine();
-
         return execute(query).ok;
     } // method reloadDictionary
 
@@ -2579,7 +2539,6 @@ final class Connection
 
         auto query = new ClientQuery(this, "X");
         query.addAnsi(database).newLine();
-
         return execute(query).ok;
     } // method reloadMasterFile
 
@@ -2592,7 +2551,6 @@ final class Connection
             return false;
 
         auto query = new ClientQuery(this, "+8");
-
         return execute(query).ok;
     } // method restartServer
 
@@ -2613,14 +2571,12 @@ final class Connection
         query.add(0).newLine();
         query.add(1).newLine();
         auto response = execute(query);
-        if (!response.ok)
+        if (!response.ok || !response.checkReturnCode())
             return [];
 
-        response.checkReturnCode();
         response.readInteger(); // count of found records
         auto lines = response.readRemainingUtfLines();
         auto result = FoundLine.parseMfn(lines);
-
         return result;
     } // method search
 
@@ -2643,14 +2599,12 @@ final class Connection
         query.add(parameters.maxMfn).newLine();
         query.addAnsi(parameters.sequential).newLine();
         auto response = execute(query);
-        if (!response.ok)
+        if (!response.ok || !response.checkReturnCode())
             return [];
 
-        response.checkReturnCode();
         response.readInteger(); // count of found records
         auto lines = response.readRemainingUtfLines();
         auto result = FoundLine.parseFull(lines);
-
         return result;
     } // method search
 
@@ -2716,12 +2670,10 @@ final class Connection
         query.add(0).newLine();
         query.add(0).newLine();
         auto response = execute(query);
-        if (!response.ok)
+        if (!response.ok || !response.checkReturnCode())
             return 0;
 
-        response.checkReturnCode();
         auto result = response.readInteger();
-
         return result;
     } // method searchCount
 
@@ -2799,7 +2751,6 @@ final class Connection
 
         auto query = new ClientQuery(this, "S");
         query.addAnsi(database).newLine();
-
         return execute(query).ok;
     } // method truncateDatabase
 
@@ -2816,7 +2767,8 @@ final class Connection
         if (result.isDeleted)
         {
             result.status &= ~LOGICALLY_DELETED;
-            writeRecord(result);
+            if (writeRecord(result) == 0)
+                return null;
         }
 
         return result;
@@ -2832,7 +2784,6 @@ final class Connection
 
         auto query = new ClientQuery(this, "U");
         query.addAnsi(database).newLine();
-
         return execute(query).ok;
     } // method unlockDatabase
 
@@ -2852,7 +2803,6 @@ final class Connection
         query.addAnsi(db).newLine();
         foreach(mfn; mfnList)
             query.add(mfn).newLine();
-
         return execute(query).ok;
     } // method unlockRecords
 
@@ -2870,7 +2820,6 @@ final class Connection
         auto query = new ClientQuery(this, "8");
         foreach (line; lines)
             query.addAnsi(line).newLine();
-
         return execute(query).ok;
     } // method updateIniFile
 
@@ -2947,7 +2896,6 @@ final class Connection
 
         auto query = new ClientQuery(this, "L");
         query.addAnsi(specification);
-
         return execute(query).ok;
     } // method writeTextFile
 
