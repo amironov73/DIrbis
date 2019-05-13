@@ -1274,7 +1274,7 @@ final class DatabaseInfo
     override string toString() const
     {
         return name;
-    }
+    } // method toString
 } // class DatabaseInfo
 
 //==================================================================
@@ -1323,7 +1323,7 @@ final class VersionInfo
 /**
  * Parameters for search method.
  */
-final class SearchParameters
+struct SearchParameters
 {
     string database; /// Database name.
     int firstRecord = 1; /// First record number.
@@ -1479,15 +1479,22 @@ struct TermPosting
     /**
      * Parse the server response.
      */
-    static TermInfo[] parse(string[] lines)
+    static TermPosting[] parse(string[] lines)
     {
-        TermInfo[] result;
+        TermPosting[] result;
         foreach(line; lines)
         {
-            if (line.length != 0)
-            {
-                // TODO implement
-            }
+            auto parts = splitN(line, "#", 5);
+            if (parts.length < 4)
+                break;
+
+            TermPosting item;
+            item.mfn = parseInt(parts[0]);
+            item.tag = parseInt(parts[1]);
+            item.occurrence = parseInt(parts[2]);
+            item.count = parseInt(parts[3]);
+            item.text = parts[4];
+            result ~= item;
         }
 
         return result;
@@ -1508,7 +1515,7 @@ struct TermPosting
 /**
  * Parameters for readTerms method.
  */
-final class TermParameters
+struct TermParameters
 {
     string database; /// Database name.
     int numberOfTerms; /// Number of terms to read.
@@ -1522,7 +1529,7 @@ final class TermParameters
 /**
  * Parameters for posting reading.
  */
-final class PostingParameters
+struct PostingParameters
 {
     string database; /// Database name.
     int firstPosting = 1; /// Number of first posting.
@@ -1537,7 +1544,7 @@ final class PostingParameters
 /**
  * Data for printTable method.
  */
-final class TableDefinition
+struct TableDefinition
 {
     string database; /// Database name.
     string table; /// Table file name.
@@ -1549,10 +1556,10 @@ final class TableDefinition
     string sequentialQuery; /// Query for sequential search.
     int[] mfnList; /// Lisf of MFNs to use.
 
-    pure override string toString() const
+    pure string toString() const
     {
         return table;
-    }
+    } // method toString
 } // class TableDefinition
 
 //==================================================================
@@ -1595,7 +1602,7 @@ final class ClientInfo
     {
         return ipAddress;
     } // method toString
-}
+} // class ClientInfo
 
 //==================================================================
 
@@ -1648,42 +1655,48 @@ final class ServerStat
 /**
  * Client query encoder.
  */
-final class ClientQuery
+struct ClientQuery
 {
     private OutBuffer _buffer;
 
+    @disable this();
+
     /// Constructor.
     this(Connection connection, string command)
+        in (connection !is null)
+        in (!connection.username.empty)
+        in (!connection.password.empty)
+        in (!command.empty)
     {
-        _buffer = new OutBuffer();
-        addAnsi(command).newLine();
-        addAnsi(connection.workstation).newLine();
-        addAnsi(command).newLine();
-        add(connection.clientId).newLine();
-        add(connection.queryId).newLine();
-        addAnsi(connection.password).newLine();
-        addAnsi(connection.username).newLine();
-        newLine();
-        newLine();
-        newLine();
+        _buffer = new OutBuffer;
+        addAnsi(command).newLine;
+        addAnsi(connection.workstation).newLine;
+        addAnsi(command).newLine;
+        add(connection.clientId).newLine;
+        add(connection.queryId).newLine;
+        addAnsi(connection.password).newLine;
+        addAnsi(connection.username).newLine;
+        newLine;
+        newLine;
+        newLine;
     } // this
 
     /// Add integer value.
-    ClientQuery add(int value)
+    ref ClientQuery add(int value)
     {
         auto text = to!string(value);
         return addUtf(text);
     } // method add
 
     /// Add boolean value.
-    ClientQuery add(bool value)
+    ref ClientQuery add(bool value)
     {
         auto text = value ? "1" : "0";
         return addUtf(text);
     } // method add
 
     /// Add text in ANSI encoding.
-    ClientQuery addAnsi(string text)
+    ref ClientQuery addAnsi(string text)
     {
         auto bytes = toAnsi(text);
         _buffer.write(bytes);
@@ -1697,7 +1710,7 @@ final class ClientQuery
 
         if (stripped.empty)
         {
-            newLine();
+            newLine;
             return false;
         }
 
@@ -1715,13 +1728,12 @@ final class ClientQuery
             addUtf("!");
             addUtf(prepared);
         }
-        newLine();
-
+        newLine;
         return true;
     } // method addFormat
 
     /// Add text in UTF-8 encoding.
-    ClientQuery addUtf(string text)
+    ref ClientQuery addUtf(string text)
     {
         auto bytes = toUtf(text);
         _buffer.write(bytes);
@@ -1739,7 +1751,7 @@ final class ClientQuery
     } // method encode
 
     /// Add line delimiter symbol.
-    ClientQuery newLine()
+    ref ClientQuery newLine()
     {
         _buffer.write(cast(byte)10);
         return this;
@@ -1752,13 +1764,13 @@ final class ClientQuery
 /**
  * Server response decoder.
  */
-final class ServerResponse
+struct ServerResponse
 {
     private bool _ok;
     private ubyte[] _buffer;
     private ptrdiff_t _offset;
 
-    Connection connection; /// connection used
+    Connection connection; /// Connection used.
 
     string command; /// Command code.
     int clientId; /// Client id.
@@ -1768,6 +1780,8 @@ final class ServerResponse
     string serverVersion; /// Server version.
     int interval; /// Auto-ack interval.
 
+    @disable this();
+
     /// Constructor.
     this(ubyte[] buffer)
     {
@@ -1775,16 +1789,19 @@ final class ServerResponse
         _buffer = buffer;
         _offset=0;
 
-        command = readAnsi();
-        clientId = readInteger();
-        queryId = readInteger();
-        answerSize = readInteger();
-        serverVersion = readAnsi();
-        interval = readInteger();
-        readAnsi();
-        readAnsi();
-        readAnsi();
-        readAnsi();
+        if (_ok)
+        {
+            command = readAnsi;
+            clientId = readInteger;
+            queryId = readInteger;
+            answerSize = readInteger;
+            serverVersion = readAnsi;
+            interval = readInteger;
+            readAnsi;
+            readAnsi;
+            readAnsi;
+            readAnsi;
+        }
     } // this
 
     /// Whether all data received?
@@ -1802,7 +1819,7 @@ final class ServerResponse
     /// Check return code.
     bool checkReturnCode(int[] allowed ...)
     {
-        if (getReturnCode() < 0)
+        if (getReturnCode < 0)
             return canFind(allowed, returnCode);
         return true;
     }
@@ -1810,8 +1827,10 @@ final class ServerResponse
     /// Get raw line (no encoding applied).
     ubyte[] getLine()
     {
-        auto result = new OutBuffer();
+        if (_offset >= _buffer.length)
+            return null;
 
+        auto result = new OutBuffer;
         while (_offset < _buffer.length)
         {
             auto symbol = _buffer[_offset++];
@@ -1826,13 +1845,13 @@ final class ServerResponse
             result.write(symbol);
         }
 
-        return result.toBytes();
+        return result.toBytes;
     } // method getLine
 
     /// Get return code.
     int getReturnCode()
     {
-        returnCode = readInteger();
+        returnCode = readInteger;
         connection.lastError = returnCode;
         return returnCode;
     }
@@ -1840,13 +1859,13 @@ final class ServerResponse
     /// Read line in ANSI encoding.
     string readAnsi()
     {
-        return fromAnsi(getLine());
+        return fromAnsi(getLine);
     } // method readAnsi
 
     /// Read integer value
     int readInteger()
     {
-        auto line = readUtf();
+        auto line = readUtf;
         auto result = 0;
         if (!line.empty)
         {
@@ -1858,10 +1877,10 @@ final class ServerResponse
     /// Read remaining lines in ANSI encoding.
     string[] readRemainingAnsiLines()
     {
-        string[] result = new string[0];
+        string[] result;
         while (!eof)
         {
-            auto line = readAnsi();
+            auto line = readAnsi;
             result ~= line;
         }
         return result;
@@ -1877,10 +1896,10 @@ final class ServerResponse
     /// Read remaining lines in UTF-8 encoding.
     string[] readRemainingUtfLines()
     {
-        string[] result = new string[0];
+        string[] result;
         while (!eof)
         {
-            auto line = readUtf();
+            auto line = readUtf;
             result ~= line;
         }
         return result;
@@ -1896,7 +1915,7 @@ final class ServerResponse
     /// Read line in UTF-8 encoding.
     string readUtf()
     {
-        return fromUtf(getLine());
+        return fromUtf(getLine);
     } // method readUtf
 
 } // class ServerResponse
@@ -1911,7 +1930,7 @@ class ClientSocket
     /**
      * Talk to server and get response.
      */
-    abstract ServerResponse talkToServer(const ClientQuery query);
+    abstract ServerResponse talkToServer(const ref ClientQuery query);
 } // class ClientSocket
 
 //==================================================================
@@ -1929,17 +1948,17 @@ final class Tcp4ClientSocket : ClientSocket
         _connection = connection;
     }
 
-    override ServerResponse talkToServer(const ClientQuery query)
+    override ServerResponse talkToServer(const ref ClientQuery query)
     {
         auto socket = new Socket(AddressFamily.INET, SocketType.STREAM);
         auto address = new InternetAddress(_connection.host, _connection.port);
         socket.connect(address);
-        scope(exit) socket.close();
-        auto outgoing = query.encode();
+        scope(exit) socket.close;
+        auto outgoing = query.encode;
         socket.send(outgoing);
 
         ptrdiff_t amountRead;
-        auto incoming = new OutBuffer();
+        auto incoming = new OutBuffer;
         incoming.reserve(2048);
         auto buffer = new ubyte[2056];
         while((amountRead = socket.receive(buffer)) != 0)
@@ -1947,7 +1966,7 @@ final class Tcp4ClientSocket : ClientSocket
             incoming.write(buffer[0..amountRead]);
         }
 
-        auto result = new ServerResponse(incoming.toBytes());
+        auto result = ServerResponse(incoming.toBytes);
 
         return result;
     } // method talkToServer
@@ -1996,9 +2015,10 @@ final class Connection
     /**
      * Actualize all the non-actualized records in the database.
      */
-    bool actualizeDatabase(string database)
+    bool actualizeDatabase(string database="")
     {
-        return actualizeRecord(database, 0);
+        auto db = pickOne(database, this.database);
+        return actualizeRecord(db, 0);
     } // method actualizeDatabase
 
     /**
@@ -2009,9 +2029,9 @@ final class Connection
         if (!connected)
             return false;
 
-        auto query = new ClientQuery (this, "F");
-        query.addAnsi(database).newLine();
-        query.add(mfn).newLine();
+        auto query = ClientQuery (this, "F");
+        query.addAnsi(database).newLine;
+        query.add(mfn).newLine;
         auto response = execute(query);
         return response.ok && response.checkReturnCode();
     } // method actualizeRecord
@@ -2021,19 +2041,26 @@ final class Connection
      */
     bool connect()
     {
+        assert(!isNullOrEmpty(host));
+        assert(port > 0);
+        assert(!isNullOrEmpty(username));
+        assert(!isNullOrEmpty(password));
+        assert(!isNullOrEmpty(workstation));
+        assert(socket !is null);
+
         if (connected)
             return true;
 
         AGAIN: queryId = 1;
         clientId = uniform(100_000, 999_999);
-        auto query = new ClientQuery(this, "A");
-        query.addAnsi(username).newLine();
+        auto query = ClientQuery(this, "A");
+        query.addAnsi(username).newLine;
         query.addAnsi(password);
         auto response = execute(query);
         if (!response.ok)
             return false;
 
-        response.getReturnCode();
+        response.getReturnCode;
         if (response.returnCode == -3337)
             goto AGAIN;
 
@@ -2043,8 +2070,8 @@ final class Connection
         _connected = true;
         serverVersion = response.serverVersion;
         interval = response.interval;
-        auto lines = response.readRemainingAnsiLines();
-        ini = new IniFile();
+        auto lines = response.readRemainingAnsiLines;
+        ini = new IniFile;
         ini.parse(lines);
         return true;
     } // method connect
@@ -2064,14 +2091,16 @@ final class Connection
             string description, 
             bool readerAccess=true
         )
+        in (!database.empty)
+        in (!description.empty)
     {
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "T");
-        query.addAnsi(database).newLine();
-        query.addAnsi(description).newLine();
-        query.add(cast(int)readerAccess).newLine();
+        auto query = ClientQuery(this, "T");
+        query.addAnsi(database).newLine;
+        query.addAnsi(description).newLine;
+        query.add(cast(int)readerAccess).newLine;
         auto response = execute(query);
         return response.ok && response.checkReturnCode();
     } // method createDatabase
@@ -2079,40 +2108,43 @@ final class Connection
     /**
      * Create the dictionary for the database.
      */
-    bool createDictionary(string database)
+    bool createDictionary(string database="")
     {
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "Z");
-        query.addAnsi(database).newLine();
+        auto db = pickOne(database, this.database);
+        auto query = ClientQuery(this, "Z");
+        query.addAnsi(db).newLine;
         auto response = execute(query);
-        return response.ok && response.checkReturnCode();
+        return response.ok && response.checkReturnCode;
     } // method createDictionary
 
     /**
      * Delete the database on the server.
      */
     bool deleteDatabase(string database)
+        in (!database.empty)
     {
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "W");
-        query.addAnsi(database).newLine();
+        auto query = ClientQuery(this, "W");
+        query.addAnsi(database).newLine;
         auto response = execute(query);
-        return response.ok && response.checkReturnCode();
+        return response.ok && response.checkReturnCode;
     } // method deleteDatabase
 
     /**
      * Disconnect from the server.
      */
     bool disconnect()
+        out(; !connected)
     {
         if (!connected)
             return true;
 
-        auto query = new ClientQuery(this, "B");
+        auto query = ClientQuery(this, "B");
         query.addAnsi(username);
         execute(query);
         _connected = false;
@@ -2122,10 +2154,10 @@ final class Connection
     /**
      * Execute the query.
      */
-    ServerResponse execute(const ClientQuery query)
+    ServerResponse execute(const ref ClientQuery query)
     {
         lastError = 0;
-        ServerResponse result;
+        auto result = ServerResponse([]);
         try
         {
             result = socket.talkToServer(query);
@@ -2135,7 +2167,6 @@ final class Connection
         catch (Exception ex)
         {
             lastError = -100_000;
-            result = new ServerResponse([]);
         }
 
         return result;
@@ -2145,22 +2176,23 @@ final class Connection
      * Format the record by MFN.
      */
     string formatRecord(string text, int mfn)
+        in (mfn > 0)
     {
         if (!connected)
             return "";
 
-        auto query = new ClientQuery(this, "G");
-        query.addAnsi(database).newLine();
+        auto query = ClientQuery(this, "G");
+        query.addAnsi(database).newLine;
         if (!query.addFormat(text))
             return "";
 
-        query.add(1).newLine();
-        query.add(mfn).newLine();
+        query.add(1).newLine;
+        query.add(mfn).newLine;
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return "";
 
-        auto result = response.readRemainingUtfText();
+        auto result = response.readRemainingUtfText;
         result = strip(result);
 
         return result;
@@ -2175,16 +2207,16 @@ final class Connection
             return "";
 
         auto db = pickOne(record.database, this.database);
-        auto query = new ClientQuery(this, "G");
-        query.addAnsi(db).newLine();
+        auto query = ClientQuery(this, "G");
+        query.addAnsi(db).newLine;
         query.addFormat(format);
-        query.add(-2).newLine();
+        query.add(-2).newLine;
         query.addUtf(record.encode(IRBIS_DELIMITER));
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return "";
 
-        auto result = response.readRemainingUtfText();
+        auto result = response.readRemainingUtfText;
         result = stripRight(result);
         return result;
     }
@@ -2198,10 +2230,10 @@ final class Connection
             return 0;
 
         auto db = pickOne(databaseName, this.database);
-        auto query = new ClientQuery(this, "O");
+        auto query = ClientQuery(this, "O");
         query.addAnsi(db);
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return 0;
 
         return response.returnCode;
@@ -2216,12 +2248,12 @@ final class Connection
         if (!connected)
             return result;
 
-        auto query = new ClientQuery(this, "+1");
+        auto query = ClientQuery(this, "+1");
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return result;
 
-        auto lines = response.readRemainingAnsiLines();
+        auto lines = response.readRemainingAnsiLines;
         result.parse(lines);
         return result;
     } // method getServerStat
@@ -2231,15 +2263,15 @@ final class Connection
      */
     VersionInfo getServerVersion()
     {
-        auto result = new VersionInfo();
+        auto result = new VersionInfo;
 
         if (connected)
         {
-            auto query = new ClientQuery(this, "1");
+            auto query = ClientQuery(this, "1");
             auto response = execute(query);
-            if (response.ok && response.checkReturnCode())
+            if (response.ok && response.checkReturnCode)
             {
-                auto lines = response.readRemainingAnsiLines();
+                auto lines = response.readRemainingAnsiLines;
                 result.parse(lines);
             }
         }
@@ -2271,20 +2303,17 @@ final class Connection
     string[] listFiles(string[] specifications ...)
     {
         string[] result;
-        if (!connected)
+        if (!connected || specifications.empty)
             return result;
 
-        if (specifications.empty)
-            return result;
-
-        auto query = new ClientQuery(this, "!");
+        auto query = ClientQuery(this, "!");
         foreach (spec; specifications)
-            query.addAnsi(spec).newLine();
+            query.addAnsi(spec).newLine;
         auto response = execute(query);
         if (!response.ok)
             return result;
 
-        auto lines = response.readRemainingAnsiLines();
+        auto lines = response.readRemainingAnsiLines;
         foreach (line; lines)
         {
             auto files = irbisToLines(line);
@@ -2294,19 +2323,18 @@ final class Connection
                     result ~= file;
             }
         }
-
         return result;
     } // method listFiles
 
-     /**
-      * Empty operation. Confirms the client is alive.
-      */
+    /**
+     * Empty operation. Confirms the client is alive.
+     */
     bool noOp()
     {
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "N");
+        auto query = ClientQuery(this, "N");
         return execute(query).ok;
     } // method noOp
 
@@ -2361,9 +2389,34 @@ final class Connection
     } // method parseConnectionString
 
     /**
+     * Format table on the server.
+     */
+    string printTable(const ref TableDefinition definition)
+    {
+        if (!connected)
+            return "";
+
+        auto db = pickOne(definition.database, this.database);
+        auto query = ClientQuery(this, "7");
+        query.addAnsi(db).newLine;
+        query.addAnsi(definition.table).newLine;
+        query.addAnsi("").newLine; // instead of headers
+        query.addAnsi(definition.mode).newLine;
+        query.addAnsi(definition.searchQuery).newLine;
+        query.add(definition.minMfn).newLine;
+        query.add(definition.maxMfn).newLine;
+        query.addUtf(definition.sequentialQuery).newLine;
+        query.addAnsi("").newLine; // instead of MFN list
+        auto response = execute(query);
+        auto result = strip (response.readRemainingUtfText);
+        return result;
+    } // method printTable
+
+    /**
      * Read the MNU-file from the server.
      */
     MenuFile readMenuFile(string specification)
+        in (!specification.empty)
     {
         if (!connected)
             return null;
@@ -2378,6 +2431,35 @@ final class Connection
     } // method readMenuFile
 
     /**
+     * Read postings for the term.
+     */
+    TermPosting[] readPostings(const ref PostingParameters parameters)
+    {
+        TermPosting[] result;
+        if (!connected)
+            return result;
+
+        auto db = pickOne(parameters.database, this.database);
+        auto query = ClientQuery(this, "I");
+        query.addAnsi(db).newLine;
+        query.add(parameters.numberOfPostings).newLine;
+        query.add(parameters.firstPosting).newLine;
+        query.addFormat(parameters.format);
+        if (parameters.listOfTerms.empty)
+            foreach (term; parameters.listOfTerms)
+                query.addUtf(term).newLine;
+        else
+            query.addUtf(parameters.term).newLine;
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode())
+            return result;
+        auto lines = response.readRemainingUtfLines;
+
+        result = TermPosting.parse(lines);
+        return result;
+    }
+
+    /**
      * Read and half-decode the record.
      */
     RawRecord readRawRecord(int mfn, int versionNumber=0)
@@ -2385,7 +2467,7 @@ final class Connection
         if (!connected)
             return null;
 
-        auto query = new ClientQuery(this, "C");
+        auto query = ClientQuery(this, "C");
         query.addAnsi(database).newLine();
         query.add(mfn).newLine();
         query.add(versionNumber).newLine();
@@ -2413,7 +2495,7 @@ final class Connection
         if (!connected)
             return null;
 
-        auto query = new ClientQuery(this, "C");
+        auto query = ClientQuery(this, "C");
         query.addAnsi(database).newLine();
         query.add(mfn).newLine();
         query.add(versionNumber).newLine();
@@ -2450,7 +2532,7 @@ final class Connection
         }
         else 
         {
-            auto query = new ClientQuery(this, "G");
+            auto query = ClientQuery(this, "G");
             query.addAnsi(database).newLine();
             query.addAnsi(ALL_FORMAT).newLine();
             query.add(cast(int)mfnList.length).newLine();
@@ -2483,7 +2565,7 @@ final class Connection
      */
     TermInfo[] readTerms(string startTerm, int number)
     {
-        auto parameters = new TermParameters();
+        auto parameters = TermParameters();
         parameters.startTerm = startTerm;
         parameters.numberOfTerms = number;
         return readTerms(parameters);
@@ -2492,14 +2574,14 @@ final class Connection
     /**
      * Read terms from the inverted file.
      */
-    TermInfo[] readTerms(const TermParameters parameters)
+    TermInfo[] readTerms(const ref TermParameters parameters)
     {
         if (!connected)
             return [];
 
         auto command = parameters.reverseOrder ? "P" : "H";
         auto db = pickOne(parameters.database, this.database);
-        auto query = new ClientQuery(this, command);
+        auto query = ClientQuery(this, command);
         query.addAnsi(db).newLine();
         query.addUtf(parameters.startTerm).newLine();
         query.add(parameters.numberOfTerms).newLine();
@@ -2522,7 +2604,7 @@ final class Connection
         if (!connected)
             return "";
 
-        auto query = new ClientQuery(this, "L");
+        auto query = ClientQuery(this, "L");
         query.addAnsi(specification).newLine();
         auto response = execute(query);
         if (!response.ok)
@@ -2541,7 +2623,7 @@ final class Connection
         if (!connected || isNullOrEmpty(specification))
             return [];
 
-        auto query = new ClientQuery(this, "L");
+        auto query = ClientQuery(this, "L");
         query.addAnsi(specification).newLine();
         auto response = execute(query);
         if (!response.ok)
@@ -2574,7 +2656,7 @@ final class Connection
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "Y");
+        auto query = ClientQuery(this, "Y");
         query.addAnsi(database).newLine();
         return execute(query).ok;
     } // method reloadDictionary
@@ -2587,7 +2669,7 @@ final class Connection
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "X");
+        auto query = ClientQuery(this, "X");
         query.addAnsi(database).newLine();
         return execute(query).ok;
     } // method reloadMasterFile
@@ -2600,7 +2682,7 @@ final class Connection
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "+8");
+        auto query = ClientQuery(this, "+8");
         return execute(query).ok;
     } // method restartServer
 
@@ -2615,7 +2697,7 @@ final class Connection
         if (expression.length == 0)
             return [];
 
-        auto query = new ClientQuery(this, "K");
+        auto query = ClientQuery(this, "K");
         query.addAnsi(database).newLine();
         query.addUtf(expression).newLine();
         query.add(0).newLine();
@@ -2633,13 +2715,13 @@ final class Connection
     /**
      * Extended search for records (no more than 32k records).
      */
-    FoundLine[] search(const SearchParameters parameters)
+    FoundLine[] search(const ref SearchParameters parameters)
     {
         if (!connected)
             return [];
 
         auto db = pickOne(parameters.database, this.database);
-        auto query = new ClientQuery(this, "K");
+        auto query = ClientQuery(this, "K");
         query.addAnsi(db).newLine();
         query.addUtf(parameters.expression).newLine();
         query.add(parameters.numberOfRecords).newLine();
@@ -2671,7 +2753,7 @@ final class Connection
         auto totalCount = 0;
         while (true)
         {
-            auto query = new ClientQuery(this, "K");
+            auto query = ClientQuery(this, "K");
             query.addAnsi(database).newLine();
             query.addUtf(expression).newLine();
             query.add(0).newLine();
@@ -2714,7 +2796,7 @@ final class Connection
         if (expression.length == 0)
             return 0;
 
-        auto query = new ClientQuery(this, "K");
+        auto query = ClientQuery(this, "K");
         query.addAnsi(database).newLine();
         query.addUtf(expression).newLine();
         query.add(0).newLine();
@@ -2732,17 +2814,18 @@ final class Connection
      * (no more than 32k records).
      */
     MarcRecord[] searchRead(string expression, int limit=0)
+        in (limit >= 0)
     {
         MarcRecord[] result;
-        if (!connected || isNullOrEmpty(expression))
+        if (!connected || expression.empty)
             return result;
         
-        auto parameters = new SearchParameters();
+        SearchParameters parameters;
         parameters.expression = expression;
         parameters.format = ALL_FORMAT;
         parameters.numberOfRecords = limit;
         auto found = search(parameters);
-        if ((found is null) || (found.length == 0))
+        if ((found is null) || found.empty)
             return result;
 
         foreach (item; found)
@@ -2794,13 +2877,14 @@ final class Connection
     /**
      * Empty the database.
      */
-    bool truncateDatabase(string database)
+    bool truncateDatabase(string database="")
     {
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "S");
-        query.addAnsi(database).newLine();
+        auto db = pickOne(database, this.database);
+        auto query = ClientQuery(this, "S");
+        query.addAnsi(db).newLine;
         return execute(query).ok;
     } // method truncateDatabase
 
@@ -2809,6 +2893,7 @@ final class Connection
      * If the record isn't deleted, no action taken.
      */
     MarcRecord undeleteRecord(int mfn)
+        in (mfn > 0)
     {
         auto result = readRecord(mfn);
         if (result is null)
@@ -2827,32 +2912,33 @@ final class Connection
     /**
      * Unlock the database.
      */
-    bool unlockDatabase(string database)
+    bool unlockDatabase(string database="")
     {
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "U");
-        query.addAnsi(database).newLine();
+        auto db = pickOne(database, this.database);
+        auto query = ClientQuery(this, "U");
+        query.addAnsi(db).newLine;
         return execute(query).ok;
     } // method unlockDatabase
 
     /**
      * Unlock the slice of records.
      */
-    bool unlockRecords(string databaseName, int[] mfnList)
+    bool unlockRecords(string database, int[] mfnList)
     {
         if (!connected)
             return false;
 
-        if (mfnList.length == 0)
+        if (mfnList.empty)
             return true;
 
-        const db = pickOne(databaseName, this.database);
-        auto query = new ClientQuery(this, "Q");
-        query.addAnsi(db).newLine();
+        const db = pickOne(database, this.database);
+        auto query = ClientQuery(this, "Q");
+        query.addAnsi(db).newLine;
         foreach(mfn; mfnList)
-            query.add(mfn).newLine();
+            query.add(mfn).newLine;
         return execute(query).ok;
     } // method unlockRecords
 
@@ -2864,12 +2950,12 @@ final class Connection
         if (!connected)
             return false;
 
-        if (lines.length == 0)
+        if (lines.empty)
             return true;
 
-        auto query = new ClientQuery(this, "8");
+        auto query = ClientQuery(this, "8");
         foreach (line; lines)
-            query.addAnsi(line).newLine();
+            query.addAnsi(line).newLine;
         return execute(query).ok;
     } // method updateIniFile
 
@@ -2887,13 +2973,13 @@ final class Connection
             return 0;
 
         auto db = pickOne(record.database, this.database);
-        auto query = new ClientQuery(this, "D");
-        query.addAnsi(db).newLine();
-        query.add(lockFlag).newLine();
-        query.add(actualize).newLine();
-        query.addUtf(record.encode()).newLine();
+        auto query = ClientQuery(this, "D");
+        query.addAnsi(db).newLine;
+        query.add(lockFlag).newLine;
+        query.add(actualize).newLine;
+        query.addUtf(record.encode).newLine;
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return 0;
 
         return response.returnCode;
@@ -2908,25 +2994,25 @@ final class Connection
             bool lockFlag=false, 
             bool actualize=true,
             bool dontParse=false
-         )
+        )
     {
         if (!connected || (record is null))
             return 0;
 
         auto db = pickOne(record.database, this.database);
-        auto query = new ClientQuery(this, "D");
-        query.addAnsi(db).newLine();
-        query.add(lockFlag).newLine();
-        query.add(actualize).newLine();
-        query.addUtf(record.encode()).newLine();
+        auto query = ClientQuery(this, "D");
+        query.addAnsi(db).newLine;
+        query.add(lockFlag).newLine;
+        query.add(actualize).newLine;
+        query.addUtf(record.encode).newLine;
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return 0;
 
         if (!dontParse)
         {
             record.fields = [];
-            auto temp = response.readRemainingUtfLines();
+            auto temp = response.readRemainingUtfLines;
             auto lines = [temp[0]];
             lines ~= split(temp[1], SHORT_DELIMITER);
             record.decode(lines);
@@ -2956,30 +3042,30 @@ final class Connection
             return true;
         }
 
-        auto query = new ClientQuery(this, "6");
-        query.add(lockFlag).newLine();
-        query.add(actualize).newLine();
+        auto query = ClientQuery(this, "6");
+        query.add(lockFlag).newLine;
+        query.add(actualize).newLine;
         foreach (record; records)
         {
             auto db = pickOne(record.database, this.database);
             query.addUtf(db)
                 .addUtf(IRBIS_DELIMITER)
-                .addUtf(record.encode())
-                .newLine();
+                .addUtf(record.encode)
+                .newLine;
         }
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return false;
 
         if (!dontParse)
         {
-            auto lines = response.readRemainingUtfLines();
-            foreach (size_t i, string line; lines)
+            auto lines = response.readRemainingUtfLines;
+            foreach (i, line; lines)
             {
                 if (isNullOrEmpty(line))
                     continue;
                 auto record = records[i];
-                record.clear();
+                record.clear;
                 record.database = pickOne(record.database, this.database);
                 auto recordLines = irbisToLines(line);
                 record.decode(recordLines);
@@ -2993,11 +3079,12 @@ final class Connection
      * Write the text file to the server.
      */
     bool writeTextFile(string specification)
+        in (!specification.empty)
     {
         if (!connected)
             return false;
 
-        auto query = new ClientQuery(this, "L");
+        auto query = ClientQuery(this, "L");
         query.addAnsi(specification);
         return execute(query).ok;
     } // method writeTextFile
