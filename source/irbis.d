@@ -181,6 +181,23 @@ pure string[] split2(string text, string delimiter)
     return [to!string(text[0..index]), to!string(text[index + 1..$])];
 }
 
+/// Split the text by the delimiter into N parts (no more!).
+pure string[] splitN(string text, string delimiter, int limit)
+{
+    string[] result;
+    while (limit > 1)
+    {
+        auto index = indexOf(text, delimiter);
+        if (index < 0)
+            break;
+        result ~= to!string(text[0..index]);
+        text = text[index + 1..$];
+    }
+    if (!text.empty)
+        result ~= to!string(text);
+    return result;
+}
+
 /// Determines whether the string is null or empty.
 pure bool isNullOrEmpty(string text)
 {
@@ -657,6 +674,19 @@ final class MarcRecord
         // TODO implement
         return this;
     } // method removeAt
+
+    /**
+     * Reset record state, unbind from database.
+     * Fields remains untouched.
+     */
+    MarcRecord reset()
+    {
+        mfn = 0;
+        status = 0;
+        versionNumber = 0;
+        database = "";
+        return this;
+    } // method reset
 
     pure override string toString() const
     {
@@ -1490,6 +1520,21 @@ final class TermParameters
 //==================================================================
 
 /**
+ * Parameters for posting reading.
+ */
+final class PostingParameters
+{
+    string database; /// Database name.
+    int firstPosting = 1; /// Number of first posting.
+    string format; /// Format specification (optional).
+    int numberOfPostings; /// Required numer of posting.
+    string term; /// Search term.
+    string[] listOfTerms; /// List of terms.
+}
+
+//==================================================================
+
+/**
  * Data for printTable method.
  */
 final class TableDefinition
@@ -1650,7 +1695,7 @@ final class ClientQuery
     {
         const stripped = strip(text);
 
-        if (stripped.length == 0)
+        if (stripped.empty)
         {
             newLine();
             return false;
@@ -1726,7 +1771,7 @@ final class ServerResponse
     /// Constructor.
     this(ubyte[] buffer)
     {
-        _ok = buffer.length != 0;
+        _ok = !buffer.empty;
         _buffer = buffer;
         _offset=0;
 
@@ -1803,7 +1848,7 @@ final class ServerResponse
     {
         auto line = readUtf();
         auto result = 0;
-        if (line.length != 0)
+        if (!line.empty)
         {
             result = to!int(line);
         }
@@ -2013,7 +2058,12 @@ final class Connection
     /**
      * Create the server database.
      */
-    bool createDatabase(string database, string description, bool readerAccess=true)
+    bool createDatabase
+        (
+            string database, 
+            string description, 
+            bool readerAccess=true
+        )
     {
         if (!connected)
             return false;
@@ -2224,7 +2274,7 @@ final class Connection
         if (!connected)
             return result;
 
-        if (specifications.length == 0)
+        if (specifications.empty)
             return result;
 
         auto query = new ClientQuery(this, "!");
@@ -2240,7 +2290,7 @@ final class Connection
             auto files = irbisToLines(line);
             foreach (file; files)
             {
-                if (file.length != 0)
+                if (!file.empty)
                     result ~= file;
             }
         }
@@ -2268,7 +2318,7 @@ final class Connection
         auto items = split(connectionString, ";");
         foreach(item; items)
         {
-            if (item.length == 0)
+            if (item.empty)
                 continue;
 
             auto parts = split2(item, "=");
@@ -2319,7 +2369,7 @@ final class Connection
             return null;
 
         auto lines = readTextLines(specification);
-        if (lines.length == 0)
+        if (lines.empty)
             return null;
 
         auto result = new MenuFile();
@@ -2885,6 +2935,59 @@ final class Connection
 
         return response.returnCode;
     } // method writeRecord
+
+    /**
+     * Write the slice of records to the server.
+     */
+    bool writeRecords
+        (
+            MarcRecord[] records,
+            bool lockFlag = false,
+            bool actualize = true,
+            bool dontParse = false
+        )
+    {
+        if (!connected || records.empty)
+            return false;
+
+        if (records.length == 1)
+        {
+            writeRecord(records[0]);
+            return true;
+        }
+
+        auto query = new ClientQuery(this, "6");
+        query.add(lockFlag).newLine();
+        query.add(actualize).newLine();
+        foreach (record; records)
+        {
+            auto db = pickOne(record.database, this.database);
+            query.addUtf(db)
+                .addUtf(IRBIS_DELIMITER)
+                .addUtf(record.encode())
+                .newLine();
+        }
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode())
+            return false;
+
+        if (!dontParse)
+        {
+            auto lines = response.readRemainingUtfLines();
+            foreach (size_t i, string line; lines)
+            {
+                if (isNullOrEmpty(line))
+                    continue;
+                auto record = records[i];
+                record.clear();
+                record.database = pickOne(record.database, this.database);
+                auto recordLines = irbisToLines(line);
+                record.decode(recordLines);
+            }
+        }
+
+        return true;
+    } // method writeRecords
 
     /**
      * Write the text file to the server.
