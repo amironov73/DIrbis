@@ -15,7 +15,7 @@ install:
 
 build_script:
   - cd C:\projects\dirbis
-  - C:\D\dmd2\windows\bin\dub.exe
+  - C:\D\dmd2\windows\bin\dub.exe test
 
 test: off
 

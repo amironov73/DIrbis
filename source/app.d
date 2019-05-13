@@ -65,10 +65,10 @@ void main()
 
     record = new MarcRecord();
     record
-        .add(200)
-        .add('a', "Title")
-        .add('e', "Subtitle")
-        .add('f', "Responsibility");
+        .append(200)
+        .append('a', "Title")
+        .append('e', "Subtitle")
+        .append('f', "Responsibility");
     auto format = "v200^a, | : |v200^e, | / |v200^f";
     auto text = client.formatRecord(format, record);
     writeln(text);

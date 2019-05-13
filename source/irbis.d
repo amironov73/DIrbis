@@ -6,7 +6,7 @@
 
 //==================================================================
 
-import std.algorithm: canFind;
+import std.algorithm: canFind, remove;
 import std.array;
 import std.conv;
 import std.encoding: transcode, Windows1251String;
@@ -99,15 +99,24 @@ const UNIX_DELIMITER  = "\n";       /// Standard UNIX line delimiter.
 //
 
 /// Converts the text to ANSI encoding.
-ubyte[] toAnsi(string text)
+pure ubyte[] toAnsi(string text)
 {
     Windows1251String encoded;
     transcode(text, encoded);
     return cast(ubyte[])encoded;
 }
 
+/// Test for toAnsi
+unittest
+{
+    const source = "\u041F\u0440\u0438\u0432\u0435\u0442";
+    const actual = toAnsi(source);
+    const expected = [207, 240, 232, 226, 229, 242];
+    assert(actual == expected);
+}
+
 /// Converts the slice of bytes from ANSI encoding to text.
-string fromAnsi(ubyte[] text)
+pure string fromAnsi(const ubyte[] text)
 {
     Windows1251String s = cast(Windows1251String)text;
     string decoded;
@@ -115,16 +124,43 @@ string fromAnsi(ubyte[] text)
     return decoded;
 }
 
+// Test for fromAnsi
+unittest
+{
+    ubyte[] source = [207, 240, 232, 226, 229, 242];
+    const actual = fromAnsi(source);
+    const expected = "\u041F\u0440\u0438\u0432\u0435\u0442";
+    assert(actual == expected);
+}
+
 /// Converts the text to UTF-8 encoding.
-ubyte[] toUtf(string text)
+pure ubyte[] toUtf(string text)
 {
     return cast(ubyte[])text;
 }
 
+/// Test for toUtf
+unittest
+{
+    const source = "\u041F\u0440\u0438\u0432\u0435\u0442";
+    const actual = toUtf(source);
+    const expected = [208, 159, 209, 128, 208, 184, 208, 178, 208, 181, 209, 130];
+    assert(actual == expected);
+}
+
 /// Converts the slice of bytes from UTF-8 encoding to text.
-string fromUtf(ubyte[] text)
+pure string fromUtf(const ubyte[] text)
 {
     return cast(string)text;
+}
+
+// Test for fromUtf
+unittest
+{
+    ubyte[] source = [208, 159, 209, 128, 208, 184, 208, 178, 208, 181, 209, 130];
+    const actual = fromUtf(source);
+    const expected = "\u041F\u0440\u0438\u0432\u0435\u0442";
+    assert(actual == expected);
 }
 
 /// Examines whether the characters are the same.
@@ -133,10 +169,25 @@ pure bool sameChar(char c1, char c2)
     return toUpper(c1) == toUpper(c2);
 }
 
+/// Tesf for sameChar
+unittest
+{
+    assert(sameChar('a', 'A'));
+    assert(!sameChar('a', 'B'));
+}
+
 /// Examines whether the strings are the same.
 pure bool sameString(string s1, string s2)
 {
     return icmp(s1, s2) == 0;
+}
+
+/// Test for sameString
+unittest
+{
+    assert(sameString("test", "TEST"));
+    assert(sameString("test", "Test"));
+    assert(!sameString("test", "tset"));
 }
 
 /// Convert text from IRBIS representation to UNIX.
@@ -235,6 +286,18 @@ string prepareFormat(string text)
     return text;
 }
 
+/// Insert value into the array
+void arrayInsert(T)(ref T[] arr, size_t offset, T value)
+{
+    insertInPlace(arr, offset, value);
+}
+
+/// Remove value from the array
+void arrayRemove(T) (ref T[] arr, size_t offset)
+{
+    remove(arr, offset);
+}
+
 //==================================================================
 
 /**
@@ -250,12 +313,28 @@ final class SubField
     {
     } // constructor
 
+    /// Test for default constructor
+    unittest
+    {
+        auto subfield = new SubField();
+        assert(subfield.code == '\xFF');
+        assert(subfield.value is null);
+    }
+
     /// Constructor.
     this(char code, string value)
     {
         this.code = code;
         this.value = value;
     } // constructor
+
+    /// Test for parametrized constructor
+    unittest
+    {
+        auto subfield = new SubField('a', "SubA");
+        assert(subfield.code == 'a');
+        assert(subfield.value == "SubA");
+    }
 
     /**
      * Deep clone of the subfield.
@@ -264,6 +343,15 @@ final class SubField
     {
         return new SubField(code, value);
     } // method clone
+
+    /// Test for clone
+    unittest
+    {
+        const first = new SubField('a', "SubA");
+        const second = first.clone();
+        assert(first.code == second.code);
+        assert(first.value == second.value);
+    }
 
     /**
      * Decode the subfield from protocol representation.
@@ -274,9 +362,25 @@ final class SubField
         value = text[1..$];
     } // method decode
 
+    /// Test for decode
+    unittest
+    {
+        auto subfield = new SubField();
+        subfield.decode("aSubA");
+        assert(subfield.code == 'a');
+        assert(subfield.value == "SubA");
+    }
+
     pure override string toString() const
     {
         return "^" ~ code ~ value;
+    }
+
+    /// Test for toString
+    unittest
+    {
+        auto subfield = new SubField('a', "SubA");
+        assert(subfield.toString == "^aSubA");
     }
 
     /**
@@ -307,15 +411,33 @@ final class RecordField
         this.subfields = new SubField[0];
     } // constructor
 
+    /// Test for constructor
+    unittest
+    {
+        auto field = new RecordField(100, "Value");
+        assert(field.tag == 100);
+        assert(field.value == "Value");
+    }
+
     /**
      * Append subfield with specified code and value.
      */
-    RecordField add(char code, string value)
+    RecordField append(char code, string value)
     {
         auto subfield = new SubField(code, value);
         subfields ~= subfield;
         return this;
     } // method add
+
+    /// Test for append
+    unittest
+    {
+        auto field = new RecordField();
+        field.append('a', "SubA");
+        assert(field.subfields.length == 1);
+        assert(field.subfields[0].code == 'a');
+        assert(field.subfields[0].value == "SubA");
+    }
 
     /**
      * Clear the field (remove the value and all the subfields).
@@ -326,6 +448,15 @@ final class RecordField
         subfields = [];
         return this;
     } // method clear
+
+    /// Test for clear
+    unittest
+    {
+        auto field = new RecordField();
+        field.append('a', "SubA");
+        field.clear();
+        assert(field.subfields.length == 0);
+    }
 
     /**
      * Clone the field.
@@ -408,7 +539,7 @@ final class RecordField
      */
     RecordField insertAt(int index, SubField subfield)
     {
-        // TODO implement
+        arrayInsert(subfields, index, subfield);
         return this;
     } // method insertAt
 
@@ -417,7 +548,7 @@ final class RecordField
      */
     RecordField removeAt(int index)
     {
-        // TODO implement
+        arrayRemove(subfields, index);
         return this;
     } // method removeAt
 
@@ -483,25 +614,56 @@ final class MarcRecord
         fields = new RecordField[0];
     } // constructor
 
+    /// Test for constructor
+    unittest
+    {
+        auto record = new MarcRecord;
+        assert(record.database.empty);
+        assert(record.mfn == 0);
+        assert(record.versionNumber == 0);
+        assert(record.status == 0);
+        assert(record.fields.empty);
+    }
+
     /**
      * Add the field to back of the record.
      */
-    RecordField add(int tag, string value="")
+    RecordField append(int tag, string value="")
     {
         auto field = new RecordField(tag, value);
         fields ~= field;
         return field;
-    } // method add
+    } // method append
+
+    /// Test for append
+    unittest
+    {
+        auto record = new MarcRecord;
+        record.append(100);
+        assert(record.fields.length == 1);
+        assert(record.fields[0].tag == 100);
+        assert(record.fields[0].value.empty);
+    }
 
     /**
      * Add the field if it is non-empty.
      */
-    MarcRecord addNonEmpty(int tag, string value)
+    MarcRecord appendNonEmpty(int tag, string value)
     {
-        if (!isNullOrEmpty(value))
-            add(tag, value);
+        if (!value.empty)
+            append(tag, value);
         return this;
-    } // method addNonEmpty
+    } // method appendNonEmpty
+
+    /// Test for appendNonEmpty
+    unittest
+    {
+        auto record = new MarcRecord;
+        record.appendNonEmpty(100, "");
+        assert(record.fields.length == 0);
+        record.appendNonEmpty(100, "Field100");
+        assert(record.fields.length == 1);
+    }
 
     /**
      * Clear the record by removing all the fields.
@@ -511,6 +673,15 @@ final class MarcRecord
         fields = [];
         return this;
     } // method clear
+
+    /// Test for clear
+    unittest
+    {
+        auto record = new MarcRecord;
+        record.append(100);
+        record.clear;
+        assert(record.fields.length == 0);
+    }
 
     /**
      * Decode the record from the protocol representation.
@@ -771,19 +942,20 @@ final class MenuEntry
     /// Constructor.
     this()
     {
-    }
+    } // constructor
 
     /// Constructor.
     this(string code, string comment)
     {
         this.code = code;
         this.comment = comment;
-    }
+    } // constructor
 
     override string toString() const
     {
         return code ~ " - " ~ comment;
-    }
+    } // method toString
+
 } // class MenuEntry
 
 //==================================================================
@@ -798,12 +970,12 @@ final class MenuFile
     /**
      * Add an entry.
      */
-    MenuFile add(string code, string comment)
+    MenuFile append(string code, string comment)
     {
         auto entry = new MenuEntry(code, comment);
         entries ~= entry;
         return this;
-    }
+    } // method append
 
     /**
      * Clear the menu.
@@ -812,7 +984,7 @@ final class MenuFile
     {
         entries = [];
         return this;
-    }
+    } // method clear
 
     /**
      * Get entry.
@@ -837,7 +1009,7 @@ final class MenuFile
                 return entry;
 
         return null;
-    }
+    } // method getEntry
 
     /**
      * Get value.
@@ -848,7 +1020,7 @@ final class MenuFile
         if (entry is null)
             return defaultValue;
         return entry.comment;
-    }
+    } // method getValue
 
     /**
      * Parse text representation.
@@ -864,7 +1036,7 @@ final class MenuFile
             auto entry = new MenuEntry(code, comment);
             entries ~= entry;
         }
-    }
+    } // method parse
 
     override string toString() const
     {
@@ -876,8 +1048,9 @@ final class MenuFile
         }
         result.put("*****");
 
-        return result.toString();
-    }
+        return result.toString;
+    } // method toString
+
 } // class MenuFile
 
 //==================================================================
@@ -893,7 +1066,8 @@ final class IniLine
     pure override string toString() const
     {
         return this.key ~ "=" ~ this.value;
-    }
+    } // method toString
+
 } // class IniLine
 
 //==================================================================
