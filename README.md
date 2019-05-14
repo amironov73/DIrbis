@@ -17,22 +17,20 @@ Currently supporting:
 import std.stdio;
 import irbis;
 
-void main()
-{
+void main() {
     // Connect to the server
-    auto client = new Connection();
+    auto client = new Connection;
     client.host = "localhost";
     client.username = "librarian";
     client.password = "secret";
 
-    if (!client.connect())
-    {
+    if (!client.connect) {
         writeln("Can't connect!");
         return;
     }
 
     // Will be disconnected at exit
-    scope(exit) client.disconnect();
+    scope(exit) client.disconnect;
 
     // General server information
     writeln("Server version=", client.serverVersion);
@@ -48,8 +46,8 @@ void main()
     writeln("Records found: ", found);
 
     // get database list from the server
-    auto databases = client.listDatabases();
-    writeln(databases);
+    auto databases = client.listDatabases;
+    writeln("DATABASES=", databases);
 
     // get file content from the server
     auto content = client.readTextFile("3.IBIS.WS.OPT");
@@ -63,8 +61,7 @@ void main()
     auto files = client.listFiles("3.IBIS.brief.*", "3.IBIS.a*.pft");
     writeln(files);
 
-    foreach(mfn; found) 
-    {
+    foreach(mfn; found) {
         // Read the record
         auto record = client.readRecord(mfn);
 

@@ -99,16 +99,14 @@ const UNIX_DELIMITER  = "\n";       /// Standard UNIX line delimiter.
 //
 
 /// Converts the text to ANSI encoding.
-pure ubyte[] toAnsi(string text)
-{
+pure ubyte[] toAnsi(string text) {
     Windows1251String encoded;
     transcode(text, encoded);
     return cast(ubyte[])encoded;
 }
 
 /// Test for toAnsi
-unittest
-{
+unittest {
     const source = "\u041F\u0440\u0438\u0432\u0435\u0442";
     const actual = toAnsi(source);
     const expected = [207, 240, 232, 226, 229, 242];
@@ -116,8 +114,7 @@ unittest
 }
 
 /// Converts the slice of bytes from ANSI encoding to text.
-pure string fromAnsi(const ubyte[] text)
-{
+pure string fromAnsi(const ubyte[] text) {
     Windows1251String s = cast(Windows1251String)text;
     string decoded;
     transcode(s, decoded);
@@ -125,8 +122,7 @@ pure string fromAnsi(const ubyte[] text)
 }
 
 // Test for fromAnsi
-unittest
-{
+unittest {
     ubyte[] source = [207, 240, 232, 226, 229, 242];
     const actual = fromAnsi(source);
     const expected = "\u041F\u0440\u0438\u0432\u0435\u0442";
@@ -134,14 +130,12 @@ unittest
 }
 
 /// Converts the text to UTF-8 encoding.
-pure ubyte[] toUtf(string text)
-{
+pure ubyte[] toUtf(string text) {
     return cast(ubyte[])text;
 }
 
 /// Test for toUtf
-unittest
-{
+unittest {
     const source = "\u041F\u0440\u0438\u0432\u0435\u0442";
     const actual = toUtf(source);
     const expected = [208, 159, 209, 128, 208, 184, 208, 178, 208, 181, 209, 130];
@@ -149,14 +143,12 @@ unittest
 }
 
 /// Converts the slice of bytes from UTF-8 encoding to text.
-pure string fromUtf(const ubyte[] text)
-{
+pure string fromUtf(const ubyte[] text) {
     return cast(string)text;
 }
 
 // Test for fromUtf
-unittest
-{
+unittest {
     ubyte[] source = [208, 159, 209, 128, 208, 184, 208, 178, 208, 181, 209, 130];
     const actual = fromUtf(source);
     const expected = "\u041F\u0440\u0438\u0432\u0435\u0442";
@@ -164,139 +156,365 @@ unittest
 }
 
 /// Examines whether the characters are the same.
-pure bool sameChar(char c1, char c2)
-{
+pure bool sameChar(char c1, char c2) {
     return toUpper(c1) == toUpper(c2);
 }
 
 /// Tesf for sameChar
-unittest
-{
+unittest {
     assert(sameChar('a', 'A'));
     assert(!sameChar('a', 'B'));
 }
 
 /// Examines whether the strings are the same.
-pure bool sameString(string s1, string s2)
-{
+pure bool sameString(string s1, string s2) {
     return icmp(s1, s2) == 0;
 }
 
 /// Test for sameString
-unittest
-{
+unittest {
     assert(sameString("test", "TEST"));
     assert(sameString("test", "Test"));
     assert(!sameString("test", "tset"));
 }
 
 /// Convert text from IRBIS representation to UNIX.
-string irbisToUnix(string text)
-{
+string irbisToUnix(string text) {
     return replace(text, IRBIS_DELIMITER, UNIX_DELIMITER);
 }
 
+/// Test for irbisToUnix
+unittest {
+    assert(irbisToUnix("1\x1F\x1E2\x1F\x1E3") == "1\n2\n3");
+}
+
 /// Split text to lines by IRBIS delimiter
-string[] irbisToLines(string text)
-{
+string[] irbisToLines(string text) {
     return text.split(IRBIS_DELIMITER);
 }
 
-/// Fast parse integer number.
-pure int parseInt(ubyte[] text)
-{
-    int result = 0;
-    foreach(c; text)
-        result = result * 10 + c - 32;
-    return result;
+/// Test for irbisToLines
+unittest {
+    const source = "1\x1F\x1E2\x1F\x1E3";
+    const expected = ["1", "2", "3"];
+    const actual = irbisToLines(source);
+    assert (expected == actual);
 }
 
 /// Fast parse integer number.
-pure int parseInt(string text)
-{
+pure int parseInt(ubyte[] text) {
     int result = 0;
     foreach(c; text)
         result = result * 10 + c - 48;
     return result;
 }
 
+/// Test for parseInt(ubyte[])
+unittest {
+    ubyte[] arr = null;
+    assert(parseInt(arr) == 0);
+    arr = [49, 50, 51];
+    assert(parseInt(arr) == 123);
+}
+
+/// Fast parse integer number.
+pure int parseInt(string text) {
+    int result = 0;
+    foreach(c; text)
+        result = result * 10 + c - 48;
+    return result;
+}
+
+/// Test for parseInt(string)
+unittest {
+    assert(parseInt("") == 0);
+    assert(parseInt("0") == 0);
+    assert(parseInt("1") == 1);
+    assert(parseInt("111") == 111);
+}
+
 /// Split the text by the delimiter to 2 parts.
-pure string[] split2(string text, string delimiter)
-{
+pure string[] split2(string text, string delimiter) {
     auto index = indexOf(text, delimiter);
     if (index < 0)
-    {
         return [text];
-    }
 
     return [to!string(text[0..index]), to!string(text[index + 1..$])];
 }
 
+/// Test for split2
+unittest {
+    const source = "1#2#3";
+    const expected = ["1", "2#3"];
+    const actual = split2(source, "#");
+    assert(expected == actual);
+}
+
 /// Split the text by the delimiter into N parts (no more!).
-pure string[] splitN(string text, string delimiter, int limit)
-{
+pure string[] splitN(string text, string delimiter, int limit) {
     string[] result;
-    while (limit > 1)
-    {
+    while (limit > 1) {
         auto index = indexOf(text, delimiter);
         if (index < 0)
             break;
+
         result ~= to!string(text[0..index]);
         text = text[index + 1..$];
+        limit--;
     }
+
     if (!text.empty)
         result ~= to!string(text);
     return result;
 }
 
-/// Determines whether the string is null or empty.
-pure bool isNullOrEmpty(string text)
-{
-    return (text is null) || (text.length == 0);
+/// Test for splitN
+unittest {
+    const source = "1#2#3#4";
+    const expected = ["1", "2", "3#4"];
+    const actual = splitN(source, "#", 3);
+    assert(expected == actual);
 }
 
 /// Pick first non-empty string from the array.
-pure string pickOne(string[] strings ...)
-{
+pure string pickOne(string[] strings ...) {
     foreach(s; strings)
-        if (!isNullOrEmpty(s))
+        if (!s.empty)
             return s;
 
     throw new Exception("No strings!");
+} // method pickOne
+
+unittest {
+    assert(pickOne("first", "second") == "first");
+    assert(pickOne("", "second") == "second");
+    assert(pickOne(null, "second") == "second");
 }
 
 /// Remove comments from the format.
-string removeComments(string text)
-{
-    if (isNullOrEmpty(text))
+string removeComments(string text) {
+    if (text.empty)
         return text;
 
     if (indexOf(text, "/*") < 0)
         return text;
 
-    // TODO implement
-    return text;
-}
+    string result;
+    char state = '\0';
+    size_t index = 0;
+    const length = text.length;
+    reserve(result, length);
+
+    while (index < length) {
+        const c = text[index];
+        switch (state) {
+            case '\'', '"', '|':
+                if (c == state)
+                    state = '\0';
+                result ~= c;
+                break;
+
+            default:
+            if (c == '/') {
+                if (((index + 1) < length) && (text[index + 1] == '*')) {
+                    while (index < length) {
+                        const c2 = text[index];
+                        if ((c2 == '\r') || (c2 == '\n')) {
+                            result ~= c2;
+                            break;
+                        }
+                        index++;
+                    }
+                }
+                else {
+                    result ~= c;
+                }
+            }
+            else if ((c == '\'') || (c == '"') || (c == '|')) {
+                state = c;
+                result ~= c;
+            }
+            else {
+                result ~= c;
+            }
+            break;
+        }
+        index++;
+    }
+
+    return result;
+} // method removeComments
+
+/// Test for removeComments
+unittest {
+    assert(removeComments("") == "");
+    assert(removeComments(" ") == " ");
+    assert(removeComments("v100,/,v200") == "v100,/,v200");
+    assert(removeComments("v100/*comment\r\nv200") == "v100\r\nv200");
+    assert(removeComments("v100, '/* not comment', v200") == "v100, '/* not comment', v200");
+    assert(removeComments("v100, \"/* not comment\", v200") == "v100, \"/* not comment\", v200");
+    assert(removeComments("v100, |/* not comment|, v200") == "v100, |/* not comment|, v200");
+    assert(removeComments("v100, '/* not comment', v200, /*comment\r\nv300") == "v100, '/* not comment', v200, \r\nv300");
+    assert(removeComments("v100, '/* not comment', v200, /, \r\nv300") == "v100, '/* not comment', v200, /, \r\nv300");
+} // unittest
 
 /// Prepare the format.
-string prepareFormat(string text)
-{
+string prepareFormat(string text) {
     text = removeComments(text);
-    // TODO implement
-    return text;
+    const length = text.length;
+    if (length == 0)
+        return text;
+
+    auto flag = false;
+    for (auto i = 0; i < length; i++)
+        if (text[i] < ' ')
+        {
+            flag = true;
+            break;
+        }
+
+    if (!flag)
+        return text;
+
+    string result;
+    reserve(text, length);
+    for (auto i = 0; i < length; i++) {
+        const c = text[i];
+        if (c >= ' ')
+            result ~= c;
+    }
+
+    return result;
+} // method prepareFormat
+
+/// Test for prepareFormat
+unittest {
+    assert(prepareFormat("") == "");
+    assert(prepareFormat(" ") == " ");
+    assert(prepareFormat("v100,/,v200") == "v100,/,v200");
+    assert(prepareFormat("\tv100\r\n") == "v100");
+    assert(prepareFormat("\r\n") == "");
+    assert(prepareFormat("/* Comment") == "");
+    assert(prepareFormat("v100 '\t'\r\nv200") == "v100 ''v200");
+    assert(prepareFormat("v100 \"\t\"\r\nv200") == "v100 \"\"v200");
+    assert(prepareFormat("v100 |\t|\r\nv200") == "v100 ||v200");
+} // unittest
+
+/**
+ * Get error description by the code.
+ */
+string describeError(int code) {
+    if (code >= 0)
+        return "No error";
+
+    string result;
+    switch (code) {
+        case -100: result = "MFN outside the database range"; break;
+        case -101: result = "Bad shelf number"; break;
+        case -102: result = "Bad shelf size"; break;
+        case -140: result = "MFN outsize the database range"; break;
+        case -141: result = "Error during read"; break;
+        case -200: result = "Field is absent"; break;
+        case -201: result = "Previous version of the record is absent"; break;
+        case -202: result = "Term not found"; break;
+        case -203: result = "Last term in the list"; break;
+        case -204: result = "First term in the list"; break;
+        case -300: result = "Database is locked"; break;
+        case -301: result = "Database is locked"; break;
+        case -400: result = "Error during MST or XRF file access"; break;
+        case -401: result = "Error during IFP file access"; break;
+        case -402: result = "Error during write"; break;
+        case -403: result = "Error during actualization"; break;
+        case -600: result = "Record is logically deleted"; break;
+        case -601: result = "Record is physically deleted"; break;
+        case -602: result = "Record is locked"; break;
+        case -603: result = "Record is logically deleted"; break;
+        case -605: result = "Record is physically deleted"; break;
+        case -607: result = "Error in autoin.gbl"; break;
+        case -608: result = "Error in record version"; break;
+        case -700: result = "Error during backup creation"; break;
+        case -701: result = "Error during backup resore"; break;
+        case -702: result = "Error during sorting"; break;
+        case -703: result = "Erroneous term"; break;
+        case -704: result = "Error during dictionary creation"; break;
+        case -705: result = "Error during dictionary loading"; break;
+        case -800: result = "Error in global correction parameters"; break;
+        case -801: result = "ERR_GBL_REP"; break;
+        case -802: result = "ERR_GBL_MET"; break;
+        case -1111: result = "Server execution error"; break;
+        case -2222: result = "Protocol error"; break;
+        case -3333: result = "Unregistered client"; break;
+        case -3334: result = "Client not registered"; break;
+        case -3335: result = "Bad client identifier"; break;
+        case -3336: result = "Workstation not allowed"; break;
+        case -3337: result = "Client already registered"; break;
+        case -3338: result = "Bad client"; break;
+        case -4444: result = "Bad password"; break;
+        case -5555: result = "File doesn't exist"; break;
+        case -7777: result = "Can't run/stop administrator task"; break;
+        case -8888: result = "General error"; break;
+        default: result = "Unknown error"; break;
+    }
+    return result;
+} // method describeError
+
+/// Test for describeError
+unittest {
+    assert(describeError(5) == "No error");
+    assert(describeError(0) == "No error");
+    assert(describeError(-1) == "Unknown error");
+    assert(describeError(-8888) == "General error");
 }
 
 /// Insert value into the array
-void arrayInsert(T)(ref T[] arr, size_t offset, T value)
-{
+void arrayInsert(T)(ref T[] arr, size_t offset, T value) {
     insertInPlace(arr, offset, value);
-}
+} // method arrayInsert
+
+/// Test for arrayInsert
+unittest {
+    int[] arr;
+    arrayInsert(arr, 0, 1);
+    assert(arr == [1]);
+    arrayInsert(arr, 1, 2);
+    assert(arr == [1, 2]);
+} // unittest
 
 /// Remove value from the array
-void arrayRemove(T) (ref T[] arr, size_t offset)
-{
+void arrayRemove(T) (ref T[] arr, size_t offset) {
     remove(arr, offset);
-}
+    arr.length--;
+} // method arrayRemove
+
+/// Test for arrayRemove
+unittest {
+    int[] arr = [1, 2, 3];
+    arrayRemove(arr, 1);
+    assert(arr == [1, 3]);
+} // unittest
+
+//==================================================================
+
+/**
+ * IRBIS-specific errors.
+ */
+class IrbisException : Exception {
+    int code; /// Code.
+
+    /// Constructor.
+    this
+        (
+            int code,
+            string msg = "",
+            string file=__FILE__,
+            size_t line = __LINE__
+        )
+    {
+        super(msg, file, line);
+        this.code = code;
+    } // constructor
+
+} // class IrbisException
 
 //==================================================================
 
@@ -309,87 +527,78 @@ final class SubField
     string value; /// String value of the subfield.
 
     /// Constructor.
-    this()
-    {
+    this() {
+        // Nothing to do here
     } // constructor
 
     /// Test for default constructor
-    unittest
-    {
+    unittest {
         auto subfield = new SubField();
-        assert(subfield.code == '\xFF');
+        assert(subfield.code == char.init);
         assert(subfield.value is null);
-    }
+    } // unittest
 
     /// Constructor.
-    this(char code, string value)
-    {
+    this(char code, string value) {
         this.code = code;
         this.value = value;
     } // constructor
 
     /// Test for parametrized constructor
-    unittest
-    {
+    unittest {
         auto subfield = new SubField('a', "SubA");
         assert(subfield.code == 'a');
         assert(subfield.value == "SubA");
-    }
+    } // unittest
 
     /**
      * Deep clone of the subfield.
      */
-    SubField clone() const
-    {
+    SubField clone() const {
         return new SubField(code, value);
     } // method clone
 
     /// Test for clone
-    unittest
-    {
+    unittest {
         const first = new SubField('a', "SubA");
         const second = first.clone();
         assert(first.code == second.code);
         assert(first.value == second.value);
-    }
+    } // unittest
 
     /**
      * Decode the subfield from protocol representation.
      */
-    void decode(string text)
-    {
+    void decode(string text) {
         code = text[0];
         value = text[1..$];
     } // method decode
 
     /// Test for decode
-    unittest
-    {
+    unittest {
         auto subfield = new SubField();
         subfield.decode("aSubA");
         assert(subfield.code == 'a');
         assert(subfield.value == "SubA");
-    }
+    } // unittest
 
-    pure override string toString() const
-    {
+    pure override string toString() const {
         return "^" ~ code ~ value;
-    }
+    } // method toString
 
     /// Test for toString
-    unittest
-    {
+    unittest {
         auto subfield = new SubField('a', "SubA");
         assert(subfield.toString == "^aSubA");
-    }
+    } // unittest
 
     /**
      * Verify the subfield.
      */
-    pure bool verify() const
-    {
-        return (code != 0) && !isNullOrEmpty(value);
-    }
+    pure bool verify() const {
+        return (code != 0) && !value.empty;
+    } // method verify
+
 } // class SubField
 
 //==================================================================
@@ -404,20 +613,18 @@ final class RecordField
     SubField[] subfields; /// Subfields.
 
     /// Constructor.
-    this(int tag=0, string value="")
-    {
+    this(int tag=0, string value="") {
         this.tag = tag;
         this.value = value;
         this.subfields = new SubField[0];
     } // constructor
 
     /// Test for constructor
-    unittest
-    {
+    unittest {
         auto field = new RecordField(100, "Value");
         assert(field.tag == 100);
         assert(field.value == "Value");
-    }
+    } // unittest
 
     /**
      * Append subfield with specified code and value.
@@ -430,39 +637,35 @@ final class RecordField
     } // method add
 
     /// Test for append
-    unittest
-    {
+    unittest {
         auto field = new RecordField();
         field.append('a', "SubA");
         assert(field.subfields.length == 1);
         assert(field.subfields[0].code == 'a');
         assert(field.subfields[0].value == "SubA");
-    }
+    } // unittest
 
     /**
      * Clear the field (remove the value and all the subfields).
      */
-    RecordField clear()
-    {
+    RecordField clear() {
         value = "";
         subfields = [];
         return this;
     } // method clear
 
     /// Test for clear
-    unittest
-    {
+    unittest {
         auto field = new RecordField();
         field.append('a', "SubA");
         field.clear();
         assert(field.subfields.length == 0);
-    }
+    } // unittest
 
     /**
      * Clone the field.
      */
-    RecordField clone() const
-    {
+    RecordField clone() const {
         auto result = new RecordField(tag, value);
         foreach (subfield; subfields)
         {
@@ -474,16 +677,13 @@ final class RecordField
     /**
      * Decode body of the field from protocol representation.
      */
-    void decodeBody(string bodyText)
-    {
+    void decodeBody(string bodyText) {
         auto all = bodyText.split("^");
-        if (bodyText[0] != '^')
-        {
+        if (bodyText[0] != '^') {
             value = all[0];
             all = all[1..$];
         }
-        foreach(one; all)
-        {
+        foreach(one; all) {
             if (one.length != 0)
             {
                 auto subfield = new SubField();
@@ -496,8 +696,7 @@ final class RecordField
     /**
      * Decode the field from the protocol representation.
      */
-    void decode(string text)
-    {
+    void decode(string text) {
         auto parts = split2(text, "#");
         tag = parseInt(parts[0]);
         decodeBody(parts[1]);
@@ -506,8 +705,7 @@ final class RecordField
     /**
      * Get slice of the embedded fields.
      */
-    RecordField[] getEmbeddedFields()
-    {
+    RecordField[] getEmbeddedFields() {
         // TODO implement
         return [];
     } // method getEmbeddedFields
@@ -515,8 +713,7 @@ final class RecordField
     /**
      * Get first subfield with given code.
      */
-    SubField getFirstSubField(char code)
-    {
+    SubField getFirstSubField(char code) {
         foreach (subfield; subfields)
             if (sameChar(subfield.code, code))
                 return subfield;
@@ -526,8 +723,7 @@ final class RecordField
     /**
      * Get value of first subfield with given code.
      */
-    string getFirstSubFieldValue(char code)
-    {
+    string getFirstSubFieldValue(char code) {
         foreach (subfield; subfields)
             if (sameChar(subfield.code, code))
                 return subfield.value;
@@ -537,8 +733,7 @@ final class RecordField
     /**
      * Insert the subfield at specified position.
      */
-    RecordField insertAt(int index, SubField subfield)
-    {
+    RecordField insertAt(int index, SubField subfield) {
         arrayInsert(subfields, index, subfield);
         return this;
     } // method insertAt
@@ -546,8 +741,7 @@ final class RecordField
     /**
      * Remove subfield at specified position.
      */
-    RecordField removeAt(int index)
-    {
+    RecordField removeAt(int index) {
         arrayRemove(subfields, index);
         return this;
     } // method removeAt
@@ -555,31 +749,26 @@ final class RecordField
     /**
      * Remove all subfields with specified code.
      */
-    RecordField removeSubField(char code)
-    {
+    RecordField removeSubField(char code) {
         // TODO implement
         return this;
     } // method removeSubField
 
-    pure override string toString() const
-    {
+    pure override string toString() const {
         auto result = new OutBuffer();
         result.put(to!string(tag));
         result.put("#");
         result.put(value);
         foreach(subfield; subfields)
-        {
             result.put(subfield.toString());
-        }
         return result.toString();
     } // method toString
 
     /**
      * Verify the field.
      */
-    bool verify()
-    {
-        bool result = (tag != 0) && (!isNullOrEmpty(value) || (subfields.length != 0));
+    bool verify() {
+        bool result = (tag != 0) && (!value.empty || (subfields.length != 0));
         if (result && (subfields.length != 0))
         {
             foreach (subfield; subfields)
@@ -608,95 +797,79 @@ final class MarcRecord
     int status; /// Status
     RecordField[] fields; /// Slice of fields.
 
-    /// Constructor.
-    this()
-    {
-        fields = new RecordField[0];
-    } // constructor
-
     /// Test for constructor
-    unittest
-    {
+    unittest {
         auto record = new MarcRecord;
         assert(record.database.empty);
         assert(record.mfn == 0);
         assert(record.versionNumber == 0);
         assert(record.status == 0);
         assert(record.fields.empty);
-    }
+    } // unittest
 
     /**
      * Add the field to back of the record.
      */
-    RecordField append(int tag, string value="")
-    {
+    RecordField append(int tag, string value="") {
         auto field = new RecordField(tag, value);
         fields ~= field;
         return field;
     } // method append
 
     /// Test for append
-    unittest
-    {
+    unittest {
         auto record = new MarcRecord;
         record.append(100);
         assert(record.fields.length == 1);
         assert(record.fields[0].tag == 100);
         assert(record.fields[0].value.empty);
-    }
+    } // unittest
 
     /**
      * Add the field if it is non-empty.
      */
-    MarcRecord appendNonEmpty(int tag, string value)
-    {
+    MarcRecord appendNonEmpty(int tag, string value) {
         if (!value.empty)
             append(tag, value);
         return this;
     } // method appendNonEmpty
 
     /// Test for appendNonEmpty
-    unittest
-    {
+    unittest {
         auto record = new MarcRecord;
         record.appendNonEmpty(100, "");
         assert(record.fields.length == 0);
         record.appendNonEmpty(100, "Field100");
         assert(record.fields.length == 1);
-    }
+    } // unittest
 
     /**
      * Clear the record by removing all the fields.
      */
-    MarcRecord clear()
-    {
-        fields = [];
+    MarcRecord clear() {
+        fields.length = 0;
         return this;
     } // method clear
 
     /// Test for clear
-    unittest
-    {
+    unittest {
         auto record = new MarcRecord;
         record.append(100);
         record.clear;
         assert(record.fields.length == 0);
-    }
+    } // unittest
 
     /**
      * Decode the record from the protocol representation.
      */
-    void decode(string[] lines)
-    {
+    void decode(const string[] lines) {
         auto firstLine = split2(lines[0], "#");
         mfn = parseInt(firstLine[0]);
         status = parseInt(firstLine[1]);
         auto secondLine = split2(lines[1], "#");
         versionNumber = parseInt(secondLine[1]);
-        foreach(line; lines[2..$])
-        {
-            if (line.length != 0)
-            {
+        foreach(line; lines[2..$]) {
+            if (line.length != 0) {
                 auto field = new RecordField();
                 field.decode(line);
                 fields ~= field;
@@ -708,6 +881,7 @@ final class MarcRecord
      * Encode the record to the protocol representation.
      */
     pure string encode(string delimiter=IRBIS_DELIMITER) const
+        out (result; !result.empty)
     {
         auto result = new OutBuffer();
         result.put(to!string(mfn));
@@ -741,13 +915,13 @@ final class MarcRecord
                     foreach (subfield; field.subfields)
                     {
                         if (sameChar(subfield.code, code))
-                            if (!isNullOrEmpty(subfield.value))
+                            if (!subfield.value.empty)
                                 return subfield.value;
                     }
                 }
                 else
                 {
-                    if (!isNullOrEmpty(field.value))
+                    if (!field.value.empty)
                         return field.value;
                 }
             }
@@ -772,13 +946,13 @@ final class MarcRecord
                     foreach (subfield; field.subfields)
                     {
                         if (sameChar (subfield.code, code))
-                            if (!isNullOrEmpty(subfield.value))
+                            if (!subfield.value.empty)
                                 result ~= subfield.value;
                     }
                 }
                 else
                 {
-                    if (!isNullOrEmpty(field.value))
+                    if (!field.value.empty)
                         result ~= field.value;
                 }
             }
@@ -1133,17 +1307,14 @@ final class IniSection
         return this;
     }
 
-    pure override string toString() const
-    {
+    pure override string toString() const {
         auto result = new OutBuffer();
-        if (!isNullOrEmpty(name))
-        {
+        if (!name.empty) {
             result.put("[");
             result.put(name);
             result.put("]");
         }
-        foreach (line; lines)
-        {
+        foreach (line; lines) {
             result.put(line.toString());
             result.put("\n");
         }
@@ -1193,33 +1364,30 @@ final class IniFile
     pure string getValue(string sectionName, string key, string defaultValue="")
     {
         auto section = findSection(sectionName);
-        return (section is null) 
+        return (section is null)
             ? defaultValue : section.getValue(key, defaultValue);
     }
 
     /**
      * Parse the text representation of the INI-file.
      */
-    void parse(string[] lines)
-    {
+    void parse(string[] lines) {
         IniSection section = null;
         foreach (line; lines) {
             auto trimmed = strip(line);
-            if (isNullOrEmpty(line))
+            if (line.empty)
                 continue;
 
-            if (trimmed[0] == '[')
-            {
+            if (trimmed[0] == '[') {
                 auto name = trimmed[1..$-1];
                 section = getOrCreateSection(name);
             }
-            else if (!(section is null))
-            {
+            else if (!(section is null)) {
                 auto parts = split2(trimmed, "=");
                 if (parts.length != 2)
                     continue;
                 auto key = strip(parts[0]);
-                if (isNullOrEmpty(key))
+                if (key.empty)
                     continue;
                 auto value = strip(parts[1]);
                 auto item = new IniLine();
@@ -1233,8 +1401,7 @@ final class IniFile
     /**
      * Set the value for specified key in specified section.
      */
-    IniFile setValue(string sectionName, string key, string value)
-    {
+    IniFile setValue(string sectionName, string key, string value) {
         auto section = getOrCreateSection(sectionName);
         section.setValue(key, value);
         return this;
@@ -1364,19 +1531,19 @@ final class TreeFile
         TreeNode[] list = [];
         int currentLevel = 0;
         auto firstLine = lines[0];
-        if (isNullOrEmpty(firstLine) || (countIndent(firstLine) != 0))
+        if (firstLine.empty || (countIndent(firstLine) != 0))
             throw new Exception("Wrong TRE");
 
         list ~= new TreeNode(firstLine);
         foreach (line; lines)
         {
-            if (isNullOrEmpty(line))
+            if (line.empty)
                 continue;
 
             auto level = countIndent(line);
             if (level > (currentLevel + 1))
                 throw new Exception("Wrong TRE");
-            
+
             currentLevel = level;
             auto node = new TreeNode(line[level..$]);
             node.level = level;
@@ -1387,7 +1554,7 @@ final class TreeFile
         foreach (item; list)
             if (item.level > maxLevel)
                 maxLevel = item.level;
-        
+
         for (int level = 0; level < maxLevel; level++)
             arrange1(list, level);
 
@@ -1422,15 +1589,14 @@ final class DatabaseInfo
     {
         DatabaseInfo[] result;
 
-        foreach(entry; menu.entries)
-        {
+        foreach(entry; menu.entries) {
             string entryName = entry.code;
             if ((entryName.length == 0) || entryName.startsWith("*****"))
                 break;
+
             auto description = entry.comment;
             auto readOnly = false;
-            if (entryName[0] == '-')
-            {
+            if (entryName[0] == '-') {
                 entryName = entryName[1..$];
                 readOnly = true;
             }
@@ -1445,11 +1611,69 @@ final class DatabaseInfo
         return result;
     } // method parseMenu
 
-    override string toString() const
-    {
+    override string toString() const {
         return name;
     } // method toString
+
 } // class DatabaseInfo
+
+//==================================================================
+
+/**
+ * Information about server process.
+ */
+final class ProcessInfo
+{
+    string number; /// Just sequential number.
+    string ipAddress; /// Client IP address.
+    string name; /// User name
+    string clientId; /// Client identifier.
+    string workstation; /// Workstation kind.
+    string started; /// Started at.
+    string lastCommand; /// Last executed command.
+    string commandNumber; /// Command number.
+    string processId; /// Process identifier.
+    string state; /// Process state.
+
+    /**
+     * Parse the textual representation.
+     */
+    static ProcessInfo[] parse(string[] lines) {
+        ProcessInfo[] result;
+        if (lines.empty)
+            return result;
+
+        const processCount = parseInt(lines[0]);
+        const linesPerProcess = parseInt(lines[1]);
+        if ((processCount == 0) || (linesPerProcess == 0))
+            return result;
+
+        lines = lines[2..$];
+        for (auto i = 0; i < processCount; i++) {
+            auto process = new ProcessInfo;
+            process.number = lines[0];
+            process.ipAddress = lines[1];
+            process.name = lines[2];
+            process.clientId = lines[3];
+            process.workstation = lines[4];
+            process.started = lines[5];
+            process.lastCommand = lines[6];
+            process.commandNumber = lines[7];
+            process.processId = lines[8];
+            process.state = lines[9];
+
+            result ~= process;
+            lines = lines[linesPerProcess..$];
+        }
+
+        return result;
+    } // method parse
+
+    pure override string toString() const {
+        return format("%s %s %s", number, ipAddress, name);
+    } // method toString
+
+} // class ProcessInfo
 
 //==================================================================
 
@@ -1464,8 +1688,7 @@ final class VersionInfo
     int connectedClients; /// Current connected clients number.
 
     /// Constructor.
-    this()
-    {
+    this() {
         organization = "";
         serverVersion = "";
         maxClients = 0;
@@ -1476,20 +1699,19 @@ final class VersionInfo
      * Parse the server response.
      */
     void parse(string[] lines) {
-        if (lines.length == 3)
-        {
+        if (lines.length == 3) {
             serverVersion = lines[0];
             connectedClients = to!int(lines[1]);
             maxClients = to!int(lines[2]);
         }
-        else
-        {
+        else {
             organization = lines[0];
             serverVersion = lines[1];
             connectedClients = to!int(lines[2]);
             maxClients = to!int(lines[3]);
         }
     } // method parse
+
 } // class VersionInfo
 
 //==================================================================
@@ -1524,28 +1746,23 @@ struct FoundLine
     /**
      * Parse one text line.
      */
-    void parse(string text)
-    {
+    void parse(string text) {
         auto parts = split2(text, "#");
         mfn = parseInt(parts[0]);
         if (parts.length > 1)
             description = parts[1];
-    }
+    } // method parse
 
     /**
      * Parse server response for descriptions.
      */
-    static string[] parseDesciptions(string[] lines)
-    {
+    static string[] parseDesciptions(const string[] lines) {
         string[] result;
-        reserve(result, lines.length);
-        foreach(line; lines)
-        {
-            if (line.length != 0)
-            {
+        result.reserve(lines.length);
+        foreach(line; lines) {
+            if (line.length != 0) {
                 auto index = indexOf(line, '#');
-                if (index >= 0)
-                {
+                if (index >= 0) {
                     auto description = to!string(line[index+1..$]);
                     result ~= description;
                 }
@@ -1558,12 +1775,10 @@ struct FoundLine
     /**
      * Parse the server response for all the information.
      */
-    static FoundLine[] parseFull(string[] lines)
-    {
+    static FoundLine[] parseFull(const string[] lines) {
         FoundLine[] result;
-        reserve(result, lines.length);
-        foreach(line; lines)
-        {
+        result.reserve(lines.length);
+        foreach(line; lines) {
             if (line.length != 0)
             {
                 FoundLine item;
@@ -1578,21 +1793,27 @@ struct FoundLine
     /**
      * Parse the server response for MFN only.
      */
-    static int[] parseMfn(string[] lines)
-    {
+    static int[] parseMfn(const string[] lines) {
         int[] result;
-        reserve(result, lines.length);
-        foreach(line; lines)
-        {
+        result.reserve(lines.length);
+        foreach(line; lines) {
             if (line.length != 0)
             {
-                auto item = parseInt(line);
+                auto item = parseInt(split(line, "#")[0]);
                 result ~= item;
             }
         }
 
         return result;
     } // method parseMfn
+
+    /// Test for parseMfn
+    unittest {
+        const arr = ["1#", "2#", "3"];
+        const expected = [1, 2, 3];
+        const actual = parseMfn(arr);
+        assert(expected == actual);
+    }
 
 } // class FoundLine
 
@@ -1814,7 +2035,7 @@ final class ServerStat
         result.put("\n");
         result.put(to!string(clientCount));
         result.put("\n8\n");
-        foreach(client; runningClients) 
+        foreach(client; runningClients)
         {
             result.put(client.toString());
             result.put("\n");
@@ -2179,19 +2400,18 @@ final class Connection
         workstation = CATALOGER;
         socket = new Tcp4ClientSocket(this);
         _connected = false;
-    }
+    } // constructor
 
     ~this()
     {
         disconnect();
-    }
+    } // destructor
 
     /**
      * Actualize all the non-actualized records in the database.
      */
-    bool actualizeDatabase(string database="")
-    {
-        auto db = pickOne(database, this.database);
+    bool actualizeDatabase(string database="") {
+        const db = pickOne(database, this.database);
         return actualizeRecord(db, 0);
     } // method actualizeDatabase
 
@@ -2199,27 +2419,28 @@ final class Connection
      * Actualize the record with the given MFN.
      */
     bool actualizeRecord(string database, int mfn)
+        in (mfn >= 0)
     {
         if (!connected)
             return false;
 
+        const db = pickOne(database, this.database);
         auto query = ClientQuery (this, "F");
-        query.addAnsi(database).newLine;
+        query.addAnsi(db).newLine;
         query.add(mfn).newLine;
         auto response = execute(query);
-        return response.ok && response.checkReturnCode();
+        return response.ok && response.checkReturnCode;
     } // method actualizeRecord
 
     /**
      * Establish the server connection.
      */
-    bool connect()
-    {
-        assert(!isNullOrEmpty(host));
+    bool connect() {
+        assert(!host.empty);
         assert(port > 0);
-        assert(!isNullOrEmpty(username));
-        assert(!isNullOrEmpty(password));
-        assert(!isNullOrEmpty(workstation));
+        assert(!username.empty);
+        assert(!password.empty);
+        assert(!workstation.empty);
         assert(socket !is null);
 
         if (connected)
@@ -2261,8 +2482,8 @@ final class Connection
      */
     bool createDatabase
         (
-            string database, 
-            string description, 
+            string database,
+            string description,
             bool readerAccess=true
         )
         in (!database.empty)
@@ -2276,7 +2497,7 @@ final class Connection
         query.addAnsi(description).newLine;
         query.add(cast(int)readerAccess).newLine;
         auto response = execute(query);
-        return response.ok && response.checkReturnCode();
+        return response.ok && response.checkReturnCode;
     } // method createDatabase
 
     /**
@@ -2377,7 +2598,7 @@ final class Connection
      */
     string formatRecord(string format, const MarcRecord record)
     {
-        if (!connected || isNullOrEmpty(format) || (record is null))
+        if (!connected || format.empty || (record is null))
             return "";
 
         auto db = pickOne(record.database, this.database);
@@ -2501,10 +2722,64 @@ final class Connection
     } // method listFiles
 
     /**
+     * Get server process list.
+     */
+    ProcessInfo[] listProcesses()
+    {
+        ProcessInfo[] result;
+        if (!connected)
+            return result;
+
+        auto query = ClientQuery(this, "+3");
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode)
+            return result;
+
+        auto lines = response.readRemainingAnsiLines;
+        result = ProcessInfo.parse(lines);
+        return result;
+    } // method listProcesses
+
+    /**
+     * List all the search terms for given prefix.
+     */
+    string[] listTerms(string prefix) {
+        string[] result;
+        if (!connected)
+            return result;
+
+        prefix = capitalize(prefix);
+        const prefixLength = prefix.length;
+        auto startTerm = prefix;
+        auto lastTerm = startTerm;
+        OUTER: while (true) {
+            auto terms = readTerms(startTerm, 512);
+            auto first = true;
+            foreach (term; terms) {
+                auto text = term.text;
+                if (text[0..prefixLength] != prefix)
+                    break OUTER;
+                if (text != startTerm) {
+                    lastTerm = text;
+                    text = to!string(text[prefixLength..$]);
+                    if (first && (result.length != 0)) {
+                        if (text == result[$-1])
+                            continue;
+                    }
+                    result ~= text;
+                }
+                first = false;
+            }
+            startTerm = lastTerm;
+        }
+
+        return result;
+    }
+
+    /**
      * Empty operation. Confirms the client is alive.
      */
-    bool noOp()
-    {
+    bool noOp() {
         if (!connected)
             return false;
 
@@ -2515,11 +2790,9 @@ final class Connection
     /**
      * Parse the connection string.
      */
-    void parseConnectionString(string connectionString)
-    {
-        auto items = split(connectionString, ";");
-        foreach(item; items)
-        {
+    void parseConnectionString(string connectionString) {
+        const items = split(connectionString, ";");
+        foreach(item; items) {
             if (item.empty)
                 continue;
 
@@ -2530,8 +2803,7 @@ final class Connection
             const name = toLower(strip(parts[0]));
             auto value = strip(parts[1]);
 
-            switch(name)
-            {
+            switch(name) {
                 case "host", "server", "address":
                     host = value;
                     break;
@@ -2565,8 +2837,7 @@ final class Connection
     /**
      * Format table on the server.
      */
-    string printTable(const ref TableDefinition definition)
-    {
+    string printTable(const ref TableDefinition definition) {
         if (!connected)
             return "";
 
@@ -2607,8 +2878,7 @@ final class Connection
     /**
      * Read postings for the term.
      */
-    TermPosting[] readPostings(const ref PostingParameters parameters)
-    {
+    TermPosting[] readPostings(const ref PostingParameters parameters) {
         TermPosting[] result;
         if (!connected)
             return result;
@@ -2619,16 +2889,17 @@ final class Connection
         query.add(parameters.numberOfPostings).newLine;
         query.add(parameters.firstPosting).newLine;
         query.addFormat(parameters.format);
-        if (parameters.listOfTerms.empty)
+        if (parameters.listOfTerms.empty) {
             foreach (term; parameters.listOfTerms)
                 query.addUtf(term).newLine;
+        }
         else
             query.addUtf(parameters.term).newLine;
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return result;
-        auto lines = response.readRemainingUtfLines;
 
+        auto lines = response.readRemainingUtfLines;
         result = TermPosting.parse(lines);
         return result;
     }
@@ -2636,8 +2907,7 @@ final class Connection
     /**
      * Read and half-decode the record.
      */
-    RawRecord readRawRecord(int mfn, int versionNumber=0)
-    {
+    RawRecord readRawRecord(int mfn, int versionNumber=0) {
         if (!connected)
             return null;
 
@@ -2650,7 +2920,7 @@ final class Connection
         if (!response.ok || !response.checkReturnCode(-201, -600, -602, -603))
             return null;
 
-        auto result = new RawRecord();
+        auto result = new RawRecord;
         auto lines = response.readRemainingUtfLines();
         result.decode(lines);
         result.database = database;
@@ -2664,21 +2934,20 @@ final class Connection
     /**
      * Read the record from the server by MFN.
      */
-    MarcRecord readRecord(int mfn, int versionNumber=0)
-    {
+    MarcRecord readRecord(int mfn, int versionNumber=0) {
         if (!connected)
             return null;
 
         auto query = ClientQuery(this, "C");
-        query.addAnsi(database).newLine();
-        query.add(mfn).newLine();
-        query.add(versionNumber).newLine();
+        query.addAnsi(database).newLine;
+        query.add(mfn).newLine;
+        query.add(versionNumber).newLine;
         auto response = execute(query);
         if (!response.ok || !response.checkReturnCode(-201, -600, -602, -603))
             return null;
 
-        auto result = new MarcRecord();
-        auto lines = response.readRemainingUtfLines();
+        auto result = new MarcRecord;
+        const lines = response.readRemainingUtfLines;
         result.decode(lines);
         result.database = database;
 
@@ -2691,35 +2960,32 @@ final class Connection
     /**
      * Read some records.
      */
-    MarcRecord[] readRecords(int[] mfnList)
-    {
+    MarcRecord[] readRecords(int[] mfnList) {
         MarcRecord[] result;
 
-        if (!connected || (mfnList.length == 0))
+        if (!connected || mfnList.empty)
             return result;
 
-        if (mfnList.length == 1)
-        {
+        if (mfnList.length == 1) {
             auto record = readRecord(mfnList[0]);
             if (record !is null)
                 result ~= record;
         }
-        else 
-        {
+        else {
             auto query = ClientQuery(this, "G");
-            query.addAnsi(database).newLine();
-            query.addAnsi(ALL_FORMAT).newLine();
-            query.add(cast(int)mfnList.length).newLine();
+            query.addAnsi(database).newLine;
+            query.addAnsi(ALL_FORMAT).newLine;
+            query.add(cast(int)mfnList.length).newLine;
             foreach(mfn; mfnList)
                 query.add(mfn).newLine();
 
             auto response = execute(query);
-            if (!response.ok || !response.checkReturnCode())
+            if (!response.ok || !response.checkReturnCode)
                 return result;
 
-            auto lines = response.readRemainingUtfLines();
-            foreach(line; lines) 
-                if (!isNullOrEmpty(line))
+            const lines = response.readRemainingUtfLines;
+            foreach(line; lines)
+                if (!line.empty)
                 {
                     auto parts = split2(line, "#");
                     parts = split(parts[1], ALT_DELIMITER);
@@ -2737,8 +3003,7 @@ final class Connection
     /**
      * Read terms from the inverted file.
      */
-    TermInfo[] readTerms(string startTerm, int number)
-    {
+    TermInfo[] readTerms(string startTerm, int number) {
         auto parameters = TermParameters();
         parameters.startTerm = startTerm;
         parameters.numberOfTerms = number;
@@ -2748,19 +3013,18 @@ final class Connection
     /**
      * Read terms from the inverted file.
      */
-    TermInfo[] readTerms(const ref TermParameters parameters)
-    {
+    TermInfo[] readTerms(const ref TermParameters parameters) {
         if (!connected)
             return [];
 
         auto command = parameters.reverseOrder ? "P" : "H";
         auto db = pickOne(parameters.database, this.database);
         auto query = ClientQuery(this, command);
-        query.addAnsi(db).newLine();
-        query.addUtf(parameters.startTerm).newLine();
-        query.add(parameters.numberOfTerms).newLine();
+        query.addAnsi(db).newLine;
+        query.addUtf(parameters.startTerm).newLine;
+        query.add(parameters.numberOfTerms).newLine;
         auto prepared = prepareFormat(parameters.format);
-        query.addAnsi(prepared).newLine();
+        query.addAnsi(prepared).newLine;
         auto response = execute(query);
         if (!response.ok || !response.checkReturnCode(-202, -203, -204))
             return [];
@@ -2773,9 +3037,8 @@ final class Connection
     /**
      * Read the text file from the server.
      */
-    string readTextFile(string specification)
-    {
-        if (!connected)
+    string readTextFile(string specification) {
+        if (!connected || specification.empty)
             return "";
 
         auto query = ClientQuery(this, "L");
@@ -2792,9 +3055,8 @@ final class Connection
     /**
     * Read the text file from the server as the array of lines.
     */
-    string[] readTextLines(string specification)
-    {
-        if (!connected || isNullOrEmpty(specification))
+    string[] readTextLines(string specification) {
+        if (!connected || specification.empty)
             return [];
 
         auto query = ClientQuery(this, "L");
@@ -2811,8 +3073,7 @@ final class Connection
     /**
      * Read TRE-file from the server.
      */
-    TreeFile readTreeFile(string specification)
-    {
+    TreeFile readTreeFile(string specification) {
         auto lines = readTextLines(specification);
         if (lines.length == 0)
             return null;
@@ -2825,21 +3086,19 @@ final class Connection
     /**
     * Recreate dictionary for the database.
     */
-    bool reloadDictionary(string database)
-    {
+    bool reloadDictionary(string database) {
         if (!connected)
             return false;
 
         auto query = ClientQuery(this, "Y");
-        query.addAnsi(database).newLine();
+        query.addAnsi(database).newLine;
         return execute(query).ok;
     } // method reloadDictionary
 
     /**
      * Recreate master file for the database.
      */
-    bool reloadMasterFile(string database)
-    {
+    bool reloadMasterFile(string database) {
         if (!connected)
             return false;
 
@@ -2851,8 +3110,7 @@ final class Connection
     /**
      * Restarting the server (without losing the connected clients).
      */
-    bool restartServer()
-    {
+    bool restartServer() {
         if (!connected)
             return false;
 
@@ -2863,8 +3121,7 @@ final class Connection
     /**
      * Simple search for records (no more than 32k records).
      */
-    int[] search(string expression)
-    {
+    int[] search(string expression) {
         if (!connected)
             return [];
 
@@ -2881,7 +3138,7 @@ final class Connection
             return [];
 
         response.readInteger(); // count of found records
-        auto lines = response.readRemainingUtfLines();
+        const lines = response.readRemainingUtfLines();
         auto result = FoundLine.parseMfn(lines);
         return result;
     } // method search
@@ -2941,7 +3198,7 @@ final class Connection
                 if (totalCount == 0)
                     break;
             }
-            else 
+            else
             {
                 response.readInteger(); // eat the line
             }
@@ -2993,7 +3250,7 @@ final class Connection
         MarcRecord[] result;
         if (!connected || expression.empty)
             return result;
-        
+
         SearchParameters parameters;
         parameters.expression = expression;
         parameters.format = ALL_FORMAT;
@@ -3024,18 +3281,24 @@ final class Connection
      * If many records found, any of them will be returned.
      * If no records found, null will be returned.
      */
-    MarcRecord searchSingleRecord(string expression)
-    {
+    MarcRecord searchSingleRecord(string expression) {
         auto found = searchRead(expression, 1);
         return found.length != 0 ? found[0] : null;
     } // method searchSingleRecord
 
     /**
+     * Throw exception if last operation completed with error.
+     */
+    void throwOnError(string file = __FILE__, size_t line = __LINE__) const {
+        if (lastError < 0)
+            throw new IrbisException(lastError, describeError(lastError), file, line);
+    } // method throwOnError
+
+    /**
      * Compose the connection string for current connection.
      * The connection does not have to be established.
      */
-    pure string toConnectionString() const
-    {
+    pure string toConnectionString() const {
         return format
             (
                 "host=%s;port=%d;username=%s;password=%d;database=%s;arm=%s;",
@@ -3051,8 +3314,7 @@ final class Connection
     /**
      * Empty the database.
      */
-    bool truncateDatabase(string database="")
-    {
+    bool truncateDatabase(string database="") {
         if (!connected)
             return false;
 
@@ -3100,8 +3362,7 @@ final class Connection
     /**
      * Unlock the slice of records.
      */
-    bool unlockRecords(string database, int[] mfnList)
-    {
+    bool unlockRecords(string database, int[] mfnList) {
         if (!connected)
             return false;
 
@@ -3119,8 +3380,7 @@ final class Connection
     /**
      * Update server INI file lines for current user.
      */
-    bool updateIniFile(string[] lines)
-    {
+    bool updateIniFile(string[] lines) {
         if (!connected)
             return false;
 
@@ -3164,8 +3424,8 @@ final class Connection
      */
     int writeRecord
         (
-            MarcRecord record, 
-            bool lockFlag=false, 
+            MarcRecord record,
+            bool lockFlag=false,
             bool actualize=true,
             bool dontParse=false
         )
@@ -3236,7 +3496,7 @@ final class Connection
             auto lines = response.readRemainingUtfLines;
             foreach (i, line; lines)
             {
-                if (isNullOrEmpty(line))
+                if (line.empty)
                     continue;
                 auto record = records[i];
                 record.clear;

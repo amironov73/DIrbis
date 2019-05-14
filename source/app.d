@@ -1,15 +1,14 @@
 import std.stdio;
 import irbis;
 
-void main()
-{
-    auto client = new Connection();
+void main() {
+    auto client = new Connection;
     client.username = "librarian";
     client.password = "secret";
 
-    if (!client.connect())
-    {
+    if (!client.connect()) {
         writeln("Can't connect!");
+        writeln(describeError(client.lastError));
         return;
     }
 
@@ -25,13 +24,16 @@ void main()
     auto maxMfn = client.getMaxMfn("IBIS");
     writeln("Max MFN=", maxMfn);
 
-    client.noOp();
+    client.noOp;
 
-    auto serverVersion = client.getServerVersion();
+    auto serverVersion = client.getServerVersion;
     writeln("Organization:", serverVersion.organization);
 
-    auto stat = client.getServerStat();
+    auto stat = client.getServerStat;
     write(stat);
+
+    auto processes = client.listProcesses;
+    writeln(processes);
 
     auto databases = client.listDatabases();
     writeln(databases);
@@ -63,6 +65,9 @@ void main()
     auto terms = client.readTerms("J=", 10);
     writeln(terms);
 
+    auto allTerms = client.listTerms("J=");
+    writeln(allTerms);
+
     record = new MarcRecord();
     record
         .append(200)
@@ -76,5 +81,8 @@ void main()
     auto records = client.searchRead(`"K=БЕТОН"`);
     foreach (rec; records)
         write(rec.fm(200, 'a'), " ||| ");
-    writeln();
+    writeln;
+
+    writeln;
+    writeln("THAT'S ALL, FOLKS!");
 }
