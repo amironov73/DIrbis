@@ -156,7 +156,7 @@ unittest {
 }
 
 /// Examines whether the characters are the same.
-pure bool sameChar(char c1, char c2) {
+pure bool sameChar(char c1, char c2) nothrow {
     return toUpper(c1) == toUpper(c2);
 }
 
@@ -202,7 +202,7 @@ unittest {
 }
 
 /// Fast parse integer number.
-pure int parseInt(ubyte[] text) {
+pure int parseInt(ubyte[] text) nothrow {
     int result = 0;
     foreach(c; text)
         result = result * 10 + c - 48;
@@ -218,7 +218,7 @@ unittest {
 }
 
 /// Fast parse integer number.
-pure int parseInt(string text) {
+export pure int parseInt(string text) nothrow {
     int result = 0;
     foreach(c; text)
         result = result * 10 + c - 48;
@@ -359,7 +359,7 @@ unittest {
 } // unittest
 
 /// Prepare the format.
-string prepareFormat(string text) {
+export string prepareFormat(string text) {
     text = removeComments(text);
     const length = text.length;
     if (length == 0)
@@ -403,7 +403,7 @@ unittest {
 /**
  * Get error description by the code.
  */
-string describeError(int code) {
+export pure string describeError(int code) nothrow {
     if (code >= 0)
         return "No error";
 
@@ -498,7 +498,7 @@ unittest {
 /**
  * IRBIS-specific errors.
  */
-class IrbisException : Exception {
+export class IrbisException : Exception {
     int code; /// Code.
 
     /// Constructor.
@@ -521,7 +521,7 @@ class IrbisException : Exception {
 /**
  * Subfield consist of a code and value.
  */
-final class SubField
+export final class SubField
 {
     char code; /// One-symbol code of the subfield.
     string value; /// String value of the subfield.
@@ -569,7 +569,9 @@ final class SubField
     /**
      * Decode the subfield from protocol representation.
      */
-    void decode(string text) {
+    void decode(string text)
+        in (!text.empty)
+    {
         code = text[0];
         value = text[1..$];
     } // method decode
@@ -595,7 +597,7 @@ final class SubField
     /**
      * Verify the subfield.
      */
-    pure bool verify() const {
+    pure bool verify() const nothrow {
         return (code != 0) && !value.empty;
     } // method verify
 
@@ -606,7 +608,7 @@ final class SubField
 /**
  * Field consist of a value and subfields.
  */
-final class RecordField
+export final class RecordField
 {
     int tag; /// Numerical tag of the field.
     string value; /// String value of the field.
@@ -705,10 +707,76 @@ final class RecordField
     /**
      * Get slice of the embedded fields.
      */
-    RecordField[] getEmbeddedFields() {
-        // TODO implement
-        return [];
+    RecordField[] getEmbeddedFields() const {
+        RecordField[] result;
+        RecordField found = null;
+        foreach(subfield; subfields) {
+            if (subfield.code == '1') {
+                if (found) {
+                    if (found.verify)
+                        result ~= found;
+                    found = null;
+                }
+                const value  = subfield.value;
+                if (value.empty)
+                    continue;
+                const tag = parseInt(value[0..3]);
+                found = new RecordField(tag);
+                if (tag < 10)
+                    found.value = value[3..$];
+            }
+            else {
+                if (found)
+                    found.subfields ~= cast(SubField)subfield;
+            }
+        }
+
+        if (found && found.verify)
+            result ~= found;
+
+        return result;
     } // method getEmbeddedFields
+
+    /// Test for getEmbeddedFields
+    unittest {
+        auto field = new RecordField(200);
+        auto embedded = field.getEmbeddedFields;
+        assert(embedded.empty);
+
+        field = new RecordField(461)
+            .append('1', "200#1")
+            .append('a', "Golden chain")
+            .append('e', "Notes. Novels. Stories")
+            .append('f', "Bondarin S. A.")
+            .append('v', "P. 76-132");
+        embedded = field.getEmbeddedFields;
+        assert(embedded.length == 1);
+        assert(embedded[0].tag == 200);
+        assert(embedded[0].subfields.length == 4);
+        assert(embedded[0].subfields[0].code == 'a');
+        assert(embedded[0].subfields[0].value == "Golden chain");
+
+        field = new RecordField(461)
+            .append('1', "200#1")
+            .append('a', "Golden chain")
+            .append('e', "Notes. Novels. Stories")
+            .append('f', "Bondarin S. A.")
+            .append('v', "P. 76-132")
+            .append('1', "2001#")
+            .append('a', "Ruslan and Ludmila")
+            .append('f', "Pushkin A. S.");
+        embedded = field.getEmbeddedFields;
+        assert(embedded.length == 2);
+        assert(embedded[0].tag == 200);
+        assert(embedded[0].subfields.length == 4);
+        assert(embedded[0].subfields[0].code == 'a');
+        assert(embedded[0].subfields[0].value == "Golden chain");
+        assert(embedded[1].tag == 200);
+        assert(embedded[1].subfields.length == 2);
+        assert(embedded[1].subfields[0].code == 'a');
+        assert(embedded[1].subfields[0].value == "Ruslan and Ludmila");
+
+    } // unittest
 
     /**
      * Get first subfield with given code.
@@ -733,7 +801,7 @@ final class RecordField
     /**
      * Insert the subfield at specified position.
      */
-    RecordField insertAt(int index, SubField subfield) {
+    RecordField insertAt(size_t index, SubField subfield) {
         arrayInsert(subfields, index, subfield);
         return this;
     } // method insertAt
@@ -741,7 +809,7 @@ final class RecordField
     /**
      * Remove subfield at specified position.
      */
-    RecordField removeAt(int index) {
+    RecordField removeAt(size_t index) {
         arrayRemove(subfields, index);
         return this;
     } // method removeAt
@@ -767,9 +835,9 @@ final class RecordField
     /**
      * Verify the field.
      */
-    bool verify() {
-        bool result = (tag != 0) && (!value.empty || (subfields.length != 0));
-        if (result && (subfields.length != 0))
+    pure bool verify() const {
+        bool result = (tag != 0) && (!value.empty || !subfields.empty);
+        if (result && !subfields.empty)
         {
             foreach (subfield; subfields)
             {
@@ -782,6 +850,18 @@ final class RecordField
         return result;
     } // method verify
 
+    /// Test for verify
+    unittest {
+        auto field = new RecordField;
+        assert(!field.verify);
+        field = new RecordField(100);
+        assert(!field.verify);
+        field = new RecordField(100, "Field100");
+        assert(field.verify);
+        field = new RecordField(100).append('a', "SubA");
+        assert(field.verify);
+    } // unittest
+
 } // class RecordField
 
 //==================================================================
@@ -789,7 +869,7 @@ final class RecordField
 /**
  * Record consist of fields.
  */
-final class MarcRecord
+export final class MarcRecord
 {
     string database; /// Database name
     int mfn; /// Masterfile number
@@ -959,7 +1039,7 @@ final class MarcRecord
         }
 
         return result;
-    }
+    } // method fma
 
     /**
      * Get field by tag and occurrence number.
@@ -997,16 +1077,15 @@ final class MarcRecord
     /**
      * Insert the field at given index.
      */
-    MarcRecord insertAt(int index, RecordField field)
-    {
-        // TODO implement
+    MarcRecord insertAt(size_t index, RecordField field) {
+        arrayInsert(fields, index, field);
         return this;
     }
 
     /**
      * Determine whether the record is marked as deleted.
      */
-    @property pure bool isDeleted() const
+    @property pure bool deleted() const
     {
         return (status & 3) != 0;
     } // method isDeleted
@@ -1014,9 +1093,8 @@ final class MarcRecord
     /**
      * Remove field at specified index.
      */
-    MarcRecord removeAt(int index)
-    {
-        // TODO implement
+    MarcRecord removeAt(size_t index) {
+        arrayRemove(fields, index);
         return this;
     } // method removeAt
 
@@ -1024,7 +1102,7 @@ final class MarcRecord
      * Reset record state, unbind from database.
      * Fields remains untouched.
      */
-    MarcRecord reset()
+    MarcRecord reset() nothrow
     {
         mfn = 0;
         status = 0;
@@ -1045,7 +1123,7 @@ final class MarcRecord
 /**
  * Half-parsed record.
  */
-final class RawRecord
+export final class RawRecord
 {
     string database; /// Database name.
     int mfn; /// Masterfile number
@@ -1056,8 +1134,7 @@ final class RawRecord
     /**
      * Decode the text representation.
      */
-    bool decode(string[] lines)
-    {
+    bool decode(string[] lines) {
         if (lines.length < 3)
             return false;
 
@@ -1081,8 +1158,7 @@ final class RawRecord
     /**
      * Encode to the text representation.
      */
-    pure string encode(string delimiter = IRBIS_DELIMITER) const
-    {
+    pure string encode(string delimiter = IRBIS_DELIMITER) const {
         auto result = new OutBuffer();
         result.put(to!string(mfn));
         result.put("#");
@@ -1108,7 +1184,7 @@ final class RawRecord
 /**
  * Two lines in the MNU-file.
  */
-final class MenuEntry
+export final class MenuEntry
 {
     string code; /// Code.
     string comment; /// Comment.
@@ -1137,7 +1213,7 @@ final class MenuEntry
 /**
  * MNU-file wrapper.
  */
-final class MenuFile
+export final class MenuFile
 {
     MenuEntry[] entries; /// Slice of entries.
 
@@ -1232,7 +1308,7 @@ final class MenuFile
 /**
  * Line of INI-file. Consist of a key and value.
  */
-final class IniLine
+export final class IniLine
 {
     string key; /// Key string.
     string value; /// Value string
@@ -1249,7 +1325,7 @@ final class IniLine
 /**
  * Section of INI-file. Consist of lines (see IniLine).
  */
-final class IniSection
+export final class IniSection
 {
     string name; /// Name of the section.
     IniLine[] lines; /// Lines.
@@ -1281,13 +1357,12 @@ final class IniSection
     void remove(string key)
     {
         // TODO implement
-    }
+    } // method remove
 
     /**
      * Set the value for specified key.
      */
-    IniSection setValue(string key, string value)
-    {
+    IniSection setValue(string key, string value) {
         if (value is null)
         {
             remove(key);
@@ -1305,7 +1380,7 @@ final class IniSection
         }
 
         return this;
-    }
+    } // method setValue
 
     pure override string toString() const {
         auto result = new OutBuffer();
@@ -1319,7 +1394,8 @@ final class IniSection
             result.put("\n");
         }
         return result.toString();
-    }
+    } // method toString
+
 } // class IniSection
 
 //==================================================================
@@ -1327,7 +1403,7 @@ final class IniSection
 /**
  * INI-file. Consist of sections (see IniSection).
  */
-final class IniFile
+export final class IniFile
 {
     IniSection[] sections; /// Slice of sections.
 
@@ -1428,7 +1504,7 @@ final class IniFile
 /**
  * Node of TRE-file.
  */
-final class TreeNode
+export final class TreeNode
 {
     TreeNode[] children; /// Slice of children.
     string value; /// Value of the node.
@@ -1465,7 +1541,7 @@ final class TreeNode
 /**
  * TRE-file.
  */
-final class TreeFile
+export final class TreeFile
 {
     TreeNode[] roots; /// Slice of root nodes.
 
@@ -1570,7 +1646,7 @@ final class TreeFile
 /**
  * Information about IRBIS database.
  */
-final class DatabaseInfo
+export final class DatabaseInfo
 {
     string name; /// Database name
     string description; /// Description
@@ -1622,7 +1698,7 @@ final class DatabaseInfo
 /**
  * Information about server process.
  */
-final class ProcessInfo
+export final class ProcessInfo
 {
     string number; /// Just sequential number.
     string ipAddress; /// Client IP address.
@@ -1680,7 +1756,7 @@ final class ProcessInfo
 /**
  * Information about the IRBIS64 server version.
  */
-final class VersionInfo
+export final class VersionInfo
 {
     string organization; /// License owner organization.
     string serverVersion; /// Server version itself. Example: 64.2008.1
@@ -1719,7 +1795,7 @@ final class VersionInfo
 /**
  * Parameters for search method.
  */
-struct SearchParameters
+export struct SearchParameters
 {
     string database; /// Database name.
     int firstRecord = 1; /// First record number.
@@ -1730,6 +1806,11 @@ struct SearchParameters
     string expression; /// Search expression.
     string sequential; /// Sequential search expression.
     string filter; /// Additional filter.
+
+    pure string toString() const nothrow {
+        return expression;
+    } // method toString
+
 } // class SearchParameters
 
 //==================================================================
@@ -1738,7 +1819,7 @@ struct SearchParameters
  * Information about found record.
  * Used in search method.
  */
-struct FoundLine
+export struct FoundLine
 {
     int mfn; /// Record MFN.
     string description; /// Description (optional).
@@ -1813,7 +1894,7 @@ struct FoundLine
         const expected = [1, 2, 3];
         const actual = parseMfn(arr);
         assert(expected == actual);
-    }
+    } // unittest
 
 } // class FoundLine
 
@@ -1822,7 +1903,7 @@ struct FoundLine
 /**
  * Search term info.
  */
-struct TermInfo
+export struct TermInfo
 {
     int count; /// link count
     string text; /// search term text
@@ -1863,7 +1944,7 @@ struct TermInfo
 /**
  * Term posting info.
  */
-struct TermPosting
+export struct TermPosting
 {
     int mfn; /// Record MFN.
     int tag; /// Field tag.
@@ -1902,7 +1983,7 @@ struct TermPosting
             ~ to!string(occurrence) ~ "#"
             ~ to!string(count) ~ "#"
             ~ text;
-    }
+    } // method toString
 } // class TermPosting
 
 //==================================================================
@@ -1910,13 +1991,18 @@ struct TermPosting
 /**
  * Parameters for readTerms method.
  */
-struct TermParameters
+export struct TermParameters
 {
     string database; /// Database name.
     int numberOfTerms; /// Number of terms to read.
     bool reverseOrder; /// Return terms in reverse order?
     string startTerm; /// Start term.
     string format; /// Format specification (optional).
+
+    pure string toString() const nothrow {
+        return startTerm;
+    } // method toString
+
 } // class TermParameters
 
 //==================================================================
@@ -1924,7 +2010,7 @@ struct TermParameters
 /**
  * Parameters for posting reading.
  */
-struct PostingParameters
+export struct PostingParameters
 {
     string database; /// Database name.
     int firstPosting = 1; /// Number of first posting.
@@ -1932,6 +2018,10 @@ struct PostingParameters
     int numberOfPostings; /// Required numer of posting.
     string term; /// Search term.
     string[] listOfTerms; /// List of terms.
+
+    pure string toString() const nothrow {
+        return term;
+    } // method toString
 }
 
 //==================================================================
@@ -1939,7 +2029,7 @@ struct PostingParameters
 /**
  * Data for printTable method.
  */
-struct TableDefinition
+export struct TableDefinition
 {
     string database; /// Database name.
     string table; /// Table file name.
@@ -1951,10 +2041,10 @@ struct TableDefinition
     string sequentialQuery; /// Query for sequential search.
     int[] mfnList; /// Lisf of MFNs to use.
 
-    pure string toString() const
-    {
+    pure string toString() const nothrow {
         return table;
     } // method toString
+
 } // class TableDefinition
 
 //==================================================================
@@ -1963,7 +2053,7 @@ struct TableDefinition
  * Information about connected client
  * (not necessarily current client).
  */
-final class ClientInfo
+export final class ClientInfo
 {
     string number; /// Sequential number.
     string ipAddress; /// Clien IP address.
@@ -2004,7 +2094,7 @@ final class ClientInfo
 /**
  * IRBIS64 server working statistics.
  */
-final class ServerStat
+export final class ServerStat
 {
     ClientInfo[] runningClients; /// Slice of running clients.
     int clientCount; /// Actual client count.
@@ -2373,7 +2463,7 @@ final class Tcp4ClientSocket : ClientSocket
 /**
  * IRBIS-sever connection.
  */
-final class Connection
+export final class Connection
 {
     private bool _connected;
 
@@ -2392,8 +2482,7 @@ final class Connection
     int lastError; /// Last error code.
 
     /// Constructor.
-    this()
-    {
+    this() {
         host = "127.0.0.1";
         port = 6666;
         database = "IBIS";
@@ -2402,8 +2491,7 @@ final class Connection
         _connected = false;
     } // constructor
 
-    ~this()
-    {
+    ~this() {
         disconnect();
     } // destructor
 
@@ -2503,8 +2591,7 @@ final class Connection
     /**
      * Create the dictionary for the database.
      */
-    bool createDictionary(string database="")
-    {
+    bool createDictionary(string database="") {
         if (!connected)
             return false;
 
@@ -2549,18 +2636,15 @@ final class Connection
     /**
      * Execute the query.
      */
-    ServerResponse execute(const ref ClientQuery query)
-    {
+    ServerResponse execute(const ref ClientQuery query) {
         lastError = 0;
         auto result = ServerResponse([]);
-        try
-        {
+        try {
             result = socket.talkToServer(query);
             result.connection = this;
             queryId++;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             lastError = -100_000;
         }
 
@@ -2596,8 +2680,7 @@ final class Connection
     /**
      * Format virtual record.
      */
-    string formatRecord(string format, const MarcRecord record)
-    {
+    string formatRecord(string format, const MarcRecord record) {
         if (!connected || format.empty || (record is null))
             return "";
 
@@ -2619,8 +2702,7 @@ final class Connection
     /**
      * Get the maximal MFN for the database.
      */
-    int getMaxMfn(string databaseName = "")
-    {
+    int getMaxMfn(string databaseName = "") {
         if (!connected)
             return 0;
 
@@ -2637,8 +2719,7 @@ final class Connection
     /**
      * Get server running statistics.
      */
-    ServerStat getServerStat()
-    {
+    ServerStat getServerStat() {
         auto result = new ServerStat();
         if (!connected)
             return result;
@@ -2656,8 +2737,7 @@ final class Connection
     /**
      * Get the server version.
      */
-    VersionInfo getServerVersion()
-    {
+    VersionInfo getServerVersion() {
         auto result = new VersionInfo;
 
         if (connected)
@@ -2677,11 +2757,10 @@ final class Connection
     /**
      * List server databases.
      */
-    DatabaseInfo[] listDatabases(string specification = "1..dbnam2.mnu")
-    {
+    DatabaseInfo[] listDatabases(string specification = "1..dbnam2.mnu") {
         DatabaseInfo[] result;
 
-        if (!connected)
+        if (!connected || specification.empty)
             return result;
 
         auto menu = readMenuFile(specification);
@@ -2695,25 +2774,23 @@ final class Connection
     /**
      * List server files by specification.
      */
-    string[] listFiles(string[] specifications ...)
-    {
+    string[] listFiles(string[] specifications ...) {
         string[] result;
         if (!connected || specifications.empty)
             return result;
 
         auto query = ClientQuery(this, "!");
         foreach (spec; specifications)
-            query.addAnsi(spec).newLine;
+            if (spec.empty)
+                query.addAnsi(spec).newLine;
         auto response = execute(query);
         if (!response.ok)
             return result;
 
         auto lines = response.readRemainingAnsiLines;
-        foreach (line; lines)
-        {
+        foreach (line; lines) {
             auto files = irbisToLines(line);
-            foreach (file; files)
-            {
+            foreach (file; files) {
                 if (!file.empty)
                     result ~= file;
             }
@@ -2724,8 +2801,7 @@ final class Connection
     /**
      * Get server process list.
      */
-    ProcessInfo[] listProcesses()
-    {
+    ProcessInfo[] listProcesses() {
         ProcessInfo[] result;
         if (!connected)
             return result;
@@ -2870,7 +2946,7 @@ final class Connection
         if (lines.empty)
             return null;
 
-        auto result = new MenuFile();
+        auto result = new MenuFile;
         result.parse(lines);
         return result;
     } // method readMenuFile
@@ -2934,7 +3010,9 @@ final class Connection
     /**
      * Read the record from the server by MFN.
      */
-    MarcRecord readRecord(int mfn, int versionNumber=0) {
+    MarcRecord readRecord(int mfn, int versionNumber=0)
+        in (mfn > 0)
+    {
         if (!connected)
             return null;
 
@@ -3003,7 +3081,9 @@ final class Connection
     /**
      * Read terms from the inverted file.
      */
-    TermInfo[] readTerms(string startTerm, int number) {
+    TermInfo[] readTerms(string startTerm, int number)
+        in (number >= 0)
+    {
         auto parameters = TermParameters();
         parameters.startTerm = startTerm;
         parameters.numberOfTerms = number;
@@ -3103,7 +3183,7 @@ final class Connection
             return false;
 
         auto query = ClientQuery(this, "X");
-        query.addAnsi(database).newLine();
+        query.addAnsi(database).newLine;
         return execute(query).ok;
     } // method reloadMasterFile
 
@@ -3129,15 +3209,15 @@ final class Connection
             return [];
 
         auto query = ClientQuery(this, "K");
-        query.addAnsi(database).newLine();
-        query.addUtf(expression).newLine();
-        query.add(0).newLine();
-        query.add(1).newLine();
+        query.addAnsi(database).newLine;
+        query.addUtf(expression).newLine;
+        query.add(0).newLine;
+        query.add(1).newLine;
         auto response = execute(query);
         if (!response.ok || !response.checkReturnCode())
             return [];
 
-        response.readInteger(); // count of found records
+        response.readInteger; // count of found records
         const lines = response.readRemainingUtfLines();
         auto result = FoundLine.parseMfn(lines);
         return result;
@@ -3146,27 +3226,26 @@ final class Connection
     /**
      * Extended search for records (no more than 32k records).
      */
-    FoundLine[] search(const ref SearchParameters parameters)
-    {
+    FoundLine[] search(const ref SearchParameters parameters) {
         if (!connected)
             return [];
 
         auto db = pickOne(parameters.database, this.database);
         auto query = ClientQuery(this, "K");
-        query.addAnsi(db).newLine();
-        query.addUtf(parameters.expression).newLine();
-        query.add(parameters.numberOfRecords).newLine();
-        query.add(parameters.firstRecord).newLine();
+        query.addAnsi(db).newLine;
+        query.addUtf(parameters.expression).newLine;
+        query.add(parameters.numberOfRecords).newLine;
+        query.add(parameters.firstRecord).newLine;
         query.addFormat(parameters.format);
-        query.add(parameters.minMfn).newLine();
-        query.add(parameters.maxMfn).newLine();
-        query.addAnsi(parameters.sequential).newLine();
+        query.add(parameters.minMfn).newLine;
+        query.add(parameters.maxMfn).newLine;
+        query.addAnsi(parameters.sequential).newLine;
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return [];
 
         response.readInteger(); // count of found records
-        auto lines = response.readRemainingUtfLines();
+        auto lines = response.readRemainingUtfLines;
         auto result = FoundLine.parseFull(lines);
         return result;
     } // method search
@@ -3174,39 +3253,37 @@ final class Connection
     /**
      * Search all the records (even if more than 32k records).
      */
-    int[] searchAll(string expression)
-    {
-        int[] result = [];
+    int[] searchAll(string expression) {
+        int[] result;
         if (!connected)
             return result;
 
         auto firstRecord = 1;
         auto totalCount = 0;
-        while (true)
-        {
+        while (true) {
             auto query = ClientQuery(this, "K");
-            query.addAnsi(database).newLine();
-            query.addUtf(expression).newLine();
-            query.add(0).newLine();
-            query.add(firstRecord).newLine();
+            query.addAnsi(database).newLine;
+            query.addUtf(expression).newLine;
+            query.add(0).newLine;
+            query.add(firstRecord).newLine;
             auto response = execute(query);
-            if (!response.ok || !response.checkReturnCode())
+            if (!response.ok || !response.checkReturnCode)
                 return result;
-            if (firstRecord == 1)
-            {
-                totalCount = response.readInteger();
+
+            if (firstRecord == 1) {
+                totalCount = response.readInteger;
                 if (totalCount == 0)
                     break;
             }
-            else
-            {
-                response.readInteger(); // eat the line
+            else {
+                response.readInteger; // eat the line
             }
 
-            auto lines = response.readRemainingUtfLines();
+            auto lines = response.readRemainingUtfLines;
             auto found = FoundLine.parseMfn(lines);
             if (found.length == 0)
                 break;
+
             result ~= found;
             firstRecord += found.length;
             if (firstRecord >= totalCount)
@@ -3219,24 +3296,20 @@ final class Connection
     /**
      * Determine the number of records matching the search expression.
      */
-    int searchCount(string expression)
-    {
-        if (!connected)
-            return 0;
-
-        if (expression.length == 0)
+    int searchCount(string expression) {
+        if (!connected || expression.empty)
             return 0;
 
         auto query = ClientQuery(this, "K");
-        query.addAnsi(database).newLine();
-        query.addUtf(expression).newLine();
-        query.add(0).newLine();
-        query.add(0).newLine();
+        query.addAnsi(database).newLine;
+        query.addUtf(expression).newLine;
+        query.add(0).newLine;
+        query.add(0).newLine;
         auto response = execute(query);
-        if (!response.ok || !response.checkReturnCode())
+        if (!response.ok || !response.checkReturnCode)
             return 0;
 
-        auto result = response.readInteger();
+        auto result = response.readInteger;
         return result;
     } // method searchCount
 
@@ -3259,8 +3332,7 @@ final class Connection
         if ((found is null) || found.empty)
             return result;
 
-        foreach (item; found)
-        {
+        foreach (item; found) {
             auto lines = split(item.description, ALT_DELIMITER);
             if (lines.length == 0)
                 continue;
@@ -3335,7 +3407,7 @@ final class Connection
         if (result is null)
             return result;
 
-        if (result.isDeleted)
+        if (result.deleted)
         {
             result.status &= ~LOGICALLY_DELETED;
             if (writeRecord(result) == 0)
