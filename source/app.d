@@ -35,14 +35,20 @@ void main() {
     auto processes = client.listProcesses;
     writeln(processes);
 
-    auto databases = client.listDatabases();
+    auto databases = client.listDatabases;
     writeln(databases);
+
+    auto databaseInfo = client.getDatabaseInfo;
+    writeln("Logically deleted records: ", databaseInfo.logicallyDeletedRecords);
 
     auto content = client.readTextFile("3.IBIS.WS.OPT");
     writeln(content);
 
     content = client.formatRecord("@brief", 123);
     writeln(content);
+
+    auto contentLines = client.formatRecords("@brief", 1, 2, 3);
+    writeln(contentLines);
 
     auto record = client.readRecord(123);
     writeln(record);

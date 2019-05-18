@@ -453,6 +453,7 @@ export pure string describeError(int code) nothrow {
         case -5555: result = "File doesn't exist"; break;
         case -7777: result = "Can't run/stop administrator task"; break;
         case -8888: result = "General error"; break;
+        case -100_000: result = "Network failure"; break;
         default: result = "Unknown error"; break;
     }
     return result;
@@ -984,23 +985,17 @@ export final class MarcRecord
      * Get value of the field with given tag
      * (or subfield if code given).
      */
-    pure string fm(int tag, char code=0) const
-    {
-        foreach (field; fields)
-        {
-            if (field.tag == tag)
-            {
-                if (code != 0)
-                {
-                    foreach (subfield; field.subfields)
-                    {
+    pure string fm(int tag, char code=0) const {
+        foreach (field; fields) {
+            if (field.tag == tag) {
+                if (code != 0) {
+                    foreach (subfield; field.subfields) {
                         if (sameChar(subfield.code, code))
                             if (!subfield.value.empty)
                                 return subfield.value;
                     }
                 }
-                else
-                {
+                else {
                     if (!field.value.empty)
                         return field.value;
                 }
@@ -1014,24 +1009,18 @@ export final class MarcRecord
      * Get slice of values of the fields with given tag
      * (or subfield values if code given).
      */
-    pure string[] fma(int tag, char code=0)
-    {
+    pure string[] fma(int tag, char code=0) {
         string[] result;
-        foreach (field; fields)
-        {
-            if (field.tag == tag)
-            {
-                if (code != 0)
-                {
-                    foreach (subfield; field.subfields)
-                    {
+        foreach (field; fields) {
+            if (field.tag == tag) {
+                if (code != 0) {
+                    foreach (subfield; field.subfields) {
                         if (sameChar (subfield.code, code))
                             if (!subfield.value.empty)
                                 result ~= subfield.value;
                     }
                 }
-                else
-                {
+                else {
                     if (!field.value.empty)
                         result ~= field.value;
                 }
@@ -1044,12 +1033,9 @@ export final class MarcRecord
     /**
      * Get field by tag and occurrence number.
      */
-    pure RecordField getField(int tag, int occurrence=0)
-    {
-        foreach (field; fields)
-        {
-            if (field.tag == tag)
-            {
+    pure RecordField getField(int tag, int occurrence=0) {
+        foreach (field; fields) {
+            if (field.tag == tag) {
                 if (occurrence == 0)
                     return field;
                 occurrence--;
@@ -1062,11 +1048,9 @@ export final class MarcRecord
     /**
      * Get slice of fields with given tag.
      */
-    pure RecordField[] getFields(int tag)
-    {
+    pure RecordField[] getFields(int tag) {
         RecordField[] result;
-        foreach (field; fields)
-        {
+        foreach (field; fields) {
             if (field.tag == tag)
                 result ~= field;
         }
@@ -1085,8 +1069,7 @@ export final class MarcRecord
     /**
      * Determine whether the record is marked as deleted.
      */
-    @property pure bool deleted() const
-    {
+    @property pure bool deleted() const {
         return (status & 3) != 0;
     } // method isDeleted
 
@@ -1154,6 +1137,13 @@ export final class RawRecord
 
         return true;
     } // method decode
+
+    /**
+     * Determine whether the record is marked as deleted.
+     */
+    @property pure bool deleted() const {
+        return (status & 3) != 0;
+    } // method isDeleted
 
     /**
      * Encode to the text representation.
@@ -1658,11 +1648,35 @@ export final class DatabaseInfo
     bool databaseLocked; /// Whether the database is locked.
     bool readOnly; /// Whether the database is read-only.
 
+    private static int[] parseLine(string line) {
+        int[] result;
+        auto parts = split(line, SHORT_DELIMITER);
+        foreach(item; parts) {
+            if (!item.empty) {
+                const mfn = parseInt(item);
+                if (mfn != 0)
+                    result ~= mfn;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Parse the server response.
+     */
+    void parse(string[] lines) {
+        logicallyDeletedRecords = parseLine(lines[0]);
+        physicallyDeletedRecords = parseLine(lines[1]);
+        nonActualizedRecords = parseLine(lines[2]);
+        lockedRecords = parseLine(lines[3]);
+        maxMfn = parseInt(lines[4]);
+        databaseLocked = parseInt(lines[5]) != 0;
+    }
+
     /**
      * Parse the menu.
      */
-    static DatabaseInfo[] parseMenu(const MenuFile menu)
-    {
+    static DatabaseInfo[] parseMenu(const MenuFile menu) {
         DatabaseInfo[] result;
 
         foreach(entry; menu.entries) {
@@ -2523,14 +2537,14 @@ export final class Connection
     /**
      * Establish the server connection.
      */
-    bool connect() {
-        assert(!host.empty);
-        assert(port > 0);
-        assert(!username.empty);
-        assert(!password.empty);
-        assert(!workstation.empty);
-        assert(socket !is null);
-
+    bool connect() 
+        in (!host.empty)
+        in (port > 0)
+        in (!username.empty)
+        in (!password.empty)
+        in (!workstation.empty)
+        in (socket !is null)
+    {
         if (connected)
             return true;
 
@@ -2547,8 +2561,10 @@ export final class Connection
         if (response.returnCode == -3337)
             goto AGAIN;
 
-        if (response.returnCode < 0)
+        if (response.returnCode < 0) {
+            lastError = response.returnCode;
             return false;
+        }
 
         _connected = true;
         serverVersion = response.serverVersion;
@@ -2560,8 +2576,7 @@ export final class Connection
     } // method connect
 
     /// Whether the client is connected to the server?
-    @property pure bool connected() const nothrow
-    {
+    @property pure bool connected() const nothrow {
         return _connected;
     }
 
@@ -2618,6 +2633,27 @@ export final class Connection
     } // method deleteDatabase
 
     /**
+     * Delete specified file on the server.
+     */
+    void deleteFile(string fileName)
+    {
+        if (!fileName.empty)
+            formatRecord("&uf(+9K'" ~ fileName ~"')", 1);
+    } // method deleteFile
+
+    /**
+     * Delete the record by MFN.
+     */
+    bool deleteRecord(int mfn) {
+        auto record = readRawRecord(mfn);
+        if (record !is null && !record.deleted) {
+            record.status |= LOGICALLY_DELETED;
+            return writeRawRecord(record) != 0;
+        }
+        return false;
+    } // method deleteRecord
+
+    /**
      * Disconnect from the server.
      */
     bool disconnect()
@@ -2652,12 +2688,24 @@ export final class Connection
     } // method execute
 
     /**
+     * Execute arbitrary command with optional parameters.
+     */
+    ServerResponse executeAny(string command, string[] parameters ... ) {
+        if (!connected)
+            return ServerResponse([]);
+        auto query = ClientQuery(this, command);
+        foreach (parameter; parameters)
+            query.addAnsi(parameter).newLine;
+        return execute(query);
+    } // method executeAny
+
+    /**
      * Format the record by MFN.
      */
     string formatRecord(string text, int mfn)
         in (mfn > 0)
     {
-        if (!connected)
+        if (!connected || text.empty)
             return "";
 
         auto query = ClientQuery(this, "G");
@@ -2697,7 +2745,66 @@ export final class Connection
         auto result = response.readRemainingUtfText;
         result = stripRight(result);
         return result;
-    }
+    } // method formatRecord
+
+    /**
+     * Format the slice of records.
+     */
+    string[] formatRecords(string format, int[] list ...) {
+        if (!connected || list.empty)
+            return [];
+
+        string[] result;
+        result.length = list.length;
+        if (format.empty)
+            return result;
+        
+        if (list.length == 1) {
+            result[0] = formatRecord(format, list[0]);
+            return result;
+        }
+
+        auto query = ClientQuery(this, "G");
+        query.addAnsi(database).newLine;
+        if (!query.addFormat(format))
+            return result;
+        query.add(cast(int)list.length).newLine;
+        foreach(mfn; list)
+            query.add(mfn).newLine;
+        
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode)
+            return result;
+
+        auto lines = response.readRemainingUtfLines;
+        for(int i = 0; i < lines.length; i++) {
+            auto parts = split2(lines[i], "#");
+            if (parts.length != 1)
+                result[i] = irbisToUnix(parts[1]);
+        }
+
+        return result;
+    } // method formatRecords
+
+    /**
+     * Get information about the database.
+     */
+    DatabaseInfo getDatabaseInfo(string database = "") {
+        DatabaseInfo result;
+        if (!connected)
+            return result;
+
+        auto db = pickOne(database, this.database);
+        auto query = ClientQuery(this, "0");
+        query.addAnsi(db);
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode)
+            return result;
+        auto lines = response.readRemainingAnsiLines;
+        result = new DatabaseInfo;
+        result.parse(lines);
+        return result;
+    } // method getDatabaseInfo
 
     /**
      * Get the maximal MFN for the database.
@@ -2738,15 +2845,14 @@ export final class Connection
      * Get the server version.
      */
     VersionInfo getServerVersion() {
-        auto result = new VersionInfo;
+        VersionInfo result;
 
-        if (connected)
-        {
+        if (connected) {
             auto query = ClientQuery(this, "1");
             auto response = execute(query);
-            if (response.ok && response.checkReturnCode)
-            {
+            if (response.ok && response.checkReturnCode) {
                 auto lines = response.readRemainingAnsiLines;
+                result = new VersionInfo;
                 result.parse(lines);
             }
         }
