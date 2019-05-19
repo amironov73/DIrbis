@@ -93,6 +93,10 @@ const SHORT_DELIMITER = "\x1E";     /// Short version of line delimiter.
 const ALT_DELIMITER   = "\x1F";     /// Alternative version of line delimiter.
 const UNIX_DELIMITER  = "\n";       /// Standard UNIX line delimiter.
 
+// MST/XRF
+
+const MST_CONTROL_RECORD_SIZE = 36; /// Size of MST file control record, bytes
+
 //==================================================================
 //
 // Utility functions
@@ -3705,3 +3709,127 @@ export final class Connection
 
 //==================================================================
 
+/**
+ * Leader of the MST-file record.
+ */
+struct MstLeader 
+{
+    int mfn; /// Sequential number of the record.
+    int length; /// Length of the record, bytes.
+    int previousLow; /// Reference to previous version of the record (low part).
+    int previousHigh; /// Reference to previous version of the recort (high part).
+    int base; /// Base offset of the field layout.
+    int nvf; /// Number of variable length field.
+    int versionNumber; /// Version number of the record.
+    int status; /// Record status.
+
+    /// Compute the offset of previous version of the record.
+    pure long previousOffset() const nothrow {
+        return ((cast(long)previousHigh) << 32) + (cast(long)previousLow);
+    }
+} // struct MstLeader
+
+/**
+ * Entry in the MST dictionary.
+ */
+struct MstDictionaryEntry
+{
+    int tag; /// Field tag.
+    int position; /// Offset of the field data.
+    int length; /// Length of the field data.
+} // struct MstDictionaryEntry
+
+/**
+ * Field of the MST-record.
+ */
+struct MstField
+{
+    int tag; /// Field tag.
+    string text; /// Field value (not parsed for subfields).
+
+    /**
+     * Decode the field.
+     */
+    RecordField decode() {
+        auto result = new RecordField(tag);
+        result.decodeBody(text);
+        return result;
+    } // method decode
+
+} // struct MstField
+
+/**
+ * Record of MST-file.
+ */
+final class MstRecord
+{
+    MstLeader leader; /// Leader of the record.
+    MstDictionaryEntry[] dictionary; /// Dictionary of the record.
+    MstField[] fields; /// Fields.
+
+    /**
+     * Decode to MarcRecord.
+     */
+    MarcRecord decode() {
+        auto result = new MarcRecord();
+        result.mfn = leader.mfn;
+        result.status = leader.status;
+        result.versionNumber = leader.versionNumber;
+        reserve(result.fields, this.fields.length);
+        for (int i = 0; i < fields.length; i++) {
+            result.fields[i] = this.fields[i].decode;
+        }
+        return result;
+    } // method decode
+
+} // class MstRecord
+
+/**
+ * Control record of the MST-file.
+ */
+struct MstControlRecord
+{
+    int ctlMfn; /// Reserved.
+    int nextMfn; /// MFN to be assigned for next record created.
+    int nextPositionLow; /// Pointer to free space (low part).
+    int nextPositionHigh; /// Pointer to free spece (high part).
+    int mftType; /// Reserved.
+    int recCnt; /// Reserved.
+    int reserv1; /// Reserved.
+    int reserv2; /// Reserved.
+    int blocked; /// Database locked indicator.
+
+    /// Calculate offset of free space.
+    pure long nextPosition() const nothrow {
+        return ((cast(long)nextPositionHigh) << 32) + (cast(long)nextPositionLow);
+    } // method nextPosition
+
+} // struct MstControlRecord
+
+/**
+ * Encapsulates MST-file.
+ */
+class MstFile
+{
+    private File file;
+    MstControlRecord control; /// Control record.
+
+    /// Constructor.
+    this (string fileName) {
+        // TODO implement
+    } // constructor
+
+    /// Destructor.
+    ~this() {
+    } // destructor
+
+    /**
+     * Read record from specified position.
+     */
+    MstRecord readRecord(long position) {
+        // TODO implement
+        return null;
+    }
+}
+
+//==================================================================
