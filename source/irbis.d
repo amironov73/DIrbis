@@ -1811,6 +1811,94 @@ export final class VersionInfo
 //==================================================================
 
 /**
+ * Information about the registered user of the system
+ * (according to client_m.mnu).
+ */
+export struct UserInfo
+{
+    string number; /// Just sequential number.
+    string name; /// User login.
+    string password; /// User password.
+    string cataloger; /// Have access to Cataloger?
+    string reader; /// Have access to Reader?
+    string circulation; /// Have access to Circulation?
+    string acquisitions; /// Have access to Acquisitions?
+    string provision; /// Have access to Provision?
+    string administrator; /// Have access to Administrator?
+
+    pure private static string formatPair
+        (
+            string prefix,
+            string value,
+            string defaultValue
+        )
+        in (!prefix.empty)
+        in (!defaultValue.empty)
+    {
+        if (sameString(value, defaultValue)) {
+            return "";
+        }
+        return prefix ~ "=" ~ value ~ ";";
+    }
+
+    /**
+     * Encode to the text representation.
+     */
+    pure string encode() const {
+        return name ~ "\n"
+            ~ password ~ "\n"
+            ~ formatPair("C", cataloger,     "irbisc.ini")
+            ~ formatPair("R", reader,        "irbisr.ini")
+            ~ formatPair("B", circulation,   "irbisb.ini")
+            ~ formatPair("M", acquisitions,  "irbism.ini")
+            ~ formatPair("K", provision,     "irbisk.ini")
+            ~ formatPair("A", administrator, "irbisa.ini");
+    } // method encode
+
+    /**
+     * Parse the server response.
+     */
+    static UserInfo[] parse (string[] lines)
+    {
+        UserInfo[] result;
+        const userCount = parseInt(lines[0]);
+        const linesPerUser = parseInt(lines[1]);
+        if (!userCount || !linesPerUser)
+            return result;
+
+        lines = lines[2..$];
+        reserve(result, userCount);
+        for (int i = 0; i < userCount; i++) {
+            if ((lines.length < 9) || (lines[0].empty))
+                break;
+
+            UserInfo user;
+            user.number = lines[0];
+            user.name = lines[1];
+            user.password = lines[2];
+            user.cataloger = lines[3];
+            user.reader = lines[4];
+            user.circulation = lines[5];
+            user.acquisitions = lines[6];
+            user.provision = lines[7];
+            user.administrator = lines[8];
+            result ~= user;
+
+            lines = lines[linesPerUser + 1 .. $];
+        }
+
+        return result;
+    } // method parse
+
+    pure string toString() const nothrow {
+        return name;
+    } // method toString
+
+} // struct UserInfo
+
+//==================================================================
+
+/**
  * Parameters for search method.
  */
 export struct SearchParameters
@@ -2308,13 +2396,13 @@ struct ServerResponse
     } // this
 
     /// Whether all data received?
-    @property pure bool ok() const nothrow
+    pure bool ok() const nothrow
     {
         return _ok;
     }
 
     /// Whether end of response reached?
-    @property pure bool eof() const nothrow
+    pure bool eof() const nothrow
     {
         return _offset >= _buffer.length;
     }
@@ -2541,7 +2629,7 @@ export final class Connection
     /**
      * Establish the server connection.
      */
-    bool connect() 
+    bool connect()
         in (!host.empty)
         in (port > 0)
         in (!username.empty)
@@ -2762,7 +2850,7 @@ export final class Connection
         result.length = list.length;
         if (format.empty)
             return result;
-        
+
         if (list.length == 1) {
             result[0] = formatRecord(format, list[0]);
             return result;
@@ -2775,7 +2863,7 @@ export final class Connection
         query.add(cast(int)list.length).newLine;
         foreach(mfn; list)
             query.add(mfn).newLine;
-        
+
         auto response = execute(query);
         if (!response.ok || !response.checkReturnCode)
             return result;
@@ -2863,6 +2951,24 @@ export final class Connection
 
         return result;
     } // method getServerVersion
+
+    /**
+     * Get the user list from the server.
+     */
+    UserInfo[] getUserList() {
+        UserInfo[] result;
+        if (!connected)
+            return result;
+
+        auto query = ClientQuery(this, "+9");
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode)
+            return result;
+
+        auto lines = response.readRemainingAnsiLines;
+        result = UserInfo.parse(lines);
+        return result;
+    } // method getUserList
 
     /**
      * List server databases.
@@ -3712,7 +3818,7 @@ export final class Connection
 /**
  * Leader of the MST-file record.
  */
-struct MstLeader 
+struct MstLeader
 {
     int mfn; /// Sequential number of the record.
     int length; /// Length of the record, bytes.

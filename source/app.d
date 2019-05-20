@@ -1,4 +1,6 @@
 import std.stdio;
+import std.string;
+import std.algorithm.sorting;
 import irbis;
 
 void main() {
@@ -40,6 +42,10 @@ void main() {
 
     auto databaseInfo = client.getDatabaseInfo;
     writeln("Logically deleted records: ", databaseInfo.logicallyDeletedRecords);
+
+    auto users = client.getUserList;
+    sort!((a, b) => cmp(a.name, b.name) < 0)(users);
+    writeln(users);
 
     auto content = client.readTextFile("3.IBIS.WS.OPT");
     writeln(content);
