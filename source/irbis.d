@@ -8,6 +8,7 @@
 
 import std.algorithm: canFind, remove;
 import std.array;
+import std.bitmanip;
 import std.conv;
 import std.encoding: transcode, Windows1251String;
 import std.random: uniform;
@@ -93,14 +94,48 @@ const SHORT_DELIMITER = "\x1E";     /// Short version of line delimiter.
 const ALT_DELIMITER   = "\x1F";     /// Alternative version of line delimiter.
 const UNIX_DELIMITER  = "\n";       /// Standard UNIX line delimiter.
 
+// ISO2709
+
+const ISO_MARKER_LENGTH      = 24; /// ISO2709 record marker length, bytes.
+const ISO_RECORD_DELIMITER   = cast(ubyte)0x1D; /// Record delimiter.
+const ISO_FIELD_DELIMITER    = cast(ubyte)0x1E; /// Field delimiter.
+const ISO_SUBFIELD_DELIMITER = cast(ubyte)0x1F; /// Subfield delimiter.
+
 // MST/XRF
 
-const MST_CONTROL_RECORD_SIZE = 36; /// Size of MST file control record, bytes
+const XRF_RECORD_SIZE = 12; /// Size of XRF file record, bytes.
+const MST_CONTROL_RECORD_SIZE = 36; /// Size of MST file control record, bytes.
 
 //==================================================================
 //
 // Utility functions
 //
+
+/// Read 32-bit integer using network byte order.
+export int readIrbisInt32(File file) {
+    ubyte[4] buffer;
+    file.rawRead(buffer);
+    return cast(int)
+        (((cast(uint)buffer[0])  << 24)
+        | ((cast(uint)buffer[1]) << 16)
+        | ((cast(uint)buffer[2]) << 8)
+        | ((cast(uint)buffer[3]) << 0));
+} // readIrbisInt32
+
+/// Read 64-bit integer using IRBIS-specific byte order.
+export ulong readIrbisInt64(File file) {
+    ubyte[8] buffer;
+    file.rawRead(buffer);
+    return
+        (((cast(ulong)buffer[0])  << 24)
+        | ((cast(ulong)buffer[1]) << 16)
+        | ((cast(ulong)buffer[2]) << 8)
+        | ((cast(ulong)buffer[3]) << 0)
+        | ((cast(ulong)buffer[4]) << 56)
+        | ((cast(ulong)buffer[5]) << 48)
+        | ((cast(ulong)buffer[6]) << 40)
+        | ((cast(ulong)buffer[7]) << 32));
+} // readIrbisInt64
 
 /// Converts the text to ANSI encoding.
 pure ubyte[] toAnsi(string text) {
@@ -3815,6 +3850,169 @@ export final class Connection
 
 //==================================================================
 
+private void encodeInt32(ubyte[] buffer, int position, int length, int value) {
+    length--;
+    for (position += length; length >= 0; length--) {
+        buffer[position] = cast(ubyte)((value % 10) + 48);
+        value /= 10;
+        position--;
+    }
+} // encodeInt32
+
+private int encodeText(ubyte[] buffer, int position, string text) {
+    if (!text.empty) {
+        const encoded = cast(ubyte[])text;
+        for (int i = 0; i < encoded.length; i++) {
+            buffer[position] = encoded[i];
+            position++;
+        }
+    }
+    return position;
+} // encodeText
+
+private void decodeField(RecordField field, string bodyText) {
+    auto all = split(bodyText, ISO_SUBFIELD_DELIMITER);
+    if (bodyText[0] != ISO_SUBFIELD_DELIMITER) {
+        field.value = to!string(all[0]);
+        all = all[1..$];
+    }
+    field.subfields.reserve(all.length);
+    foreach(one; all) {
+        if (!one.empty) {
+            auto subfield = new SubField();
+            subfield.decode(one);
+            field.subfields ~= subfield;
+        }
+    }
+} // decodeField
+
+/**
+ * Read ISO2709 record from the file.
+ */
+export MarcRecord readIsoRecord(File file, string function (ubyte[]) decoder) {
+    auto result = new MarcRecord;
+    auto marker = file.rawRead(new ubyte[5]);
+    if (marker.length != 5)
+        return null;
+
+    const recordLength = parseInt(marker);
+    auto record = new ubyte[recordLength];
+    record.reserve(recordLength);
+    const readed = file.rawRead(record[5..$]);
+    if (readed.length + 5 != recordLength)
+        return null;
+
+    if (record[$-1] != ISO_RECORD_DELIMITER) {
+        return null;
+    }
+
+    const lengthOfLength = parseInt(record[20..21]);
+    const lengthOfOffset = parseInt(record[21..22]);
+    const additionalData = parseInt(record[22..23]);
+    const directoryLength = 3 + lengthOfLength + lengthOfOffset + additionalData;
+    const indicatorLength = parseInt(record[10..11]);
+    const baseAddress = parseInt(record[12..17]);
+
+    int fieldCount = 0;
+    for (int ofs = ISO_MARKER_LENGTH; ; ofs += directoryLength) {
+        if (record[ofs] == ISO_FIELD_DELIMITER)
+            break;
+        fieldCount++;
+    }
+    result.fields.reserve(fieldCount);
+
+    for (int directory = ISO_MARKER_LENGTH; ; directory += directoryLength) {
+        if (record[directory] == ISO_FIELD_DELIMITER)
+            break;
+
+        const tag = parseInt(record[directory..directory+3]);
+        int ofs = directory + 3;
+        const fieldLength = parseInt(record[ofs..ofs+lengthOfLength]);
+        ofs = directory + 3 + lengthOfLength;
+        const fieldOffset = baseAddress + parseInt(record[ofs..ofs+lengthOfOffset]);
+        auto field = new RecordField(tag);
+        if (tag < 10) {
+            auto temp = record[fieldOffset..fieldOffset + fieldLength];
+            field.value = decoder(temp);
+        }
+        else {
+            const start = fieldOffset + indicatorLength;
+            const stop = fieldOffset + fieldLength - indicatorLength;
+            auto temp = record[start..stop];
+            auto text = decoder(temp);
+            decodeField(field, text);
+        }
+        result.fields ~= field;
+
+    }
+
+    return result;
+} // readIsoRecord
+
+/// Test for readIsoRecord
+unittest {
+    auto file = File("data/test1.iso");
+    scope(exit) file.close();
+    const record = readIsoRecord(file, &fromAnsi);
+    //assert(record.fm(1) == "RU\\NLR\\bibl\\3415");
+    assert(record.fm(801, 'a') == "RU");
+    assert(record.fm(801, 'b') == "NLR");
+} // unittest
+
+//==================================================================
+
+/**
+ * Record in the XRF-file.
+ */
+struct XrfRecord
+{
+    int low; /// Low part of the offset.
+    int high; /// High part of the offset.
+    int status; /// Record status.
+
+    /// Compute offset the record.
+    pure long offset() const nothrow {
+        return ((cast(long)high) << 32) + (cast(long)low);
+    } // method offset
+
+} // struct XrfRecord
+
+/**
+ * Encapsulates XRF-file.
+ */
+export final class XrfFile
+{
+    private File file;
+
+    /// Constructor.
+    this(string fileName) {
+        file = File(fileName, "r");
+    } // constructor
+
+    ~this() {
+        file.close();
+    } // destructor
+
+    /// Get offset for the record by MFN.
+    pure long getOffset(int mfn) const {
+        return (cast(long)(mfn - 1)) * cast(long)XRF_RECORD_SIZE;
+    } // method getOffset
+
+    /**
+     * Read XRF record.
+     */
+    XrfRecord readRecord(int mfn) {
+        XrfRecord result;
+        const offset = getOffset(mfn);
+        file.seek(offset);
+        result.low = file.readIrbisInt32;
+        result.high = file.readIrbisInt32;
+        result.status = file.readIrbisInt32;
+        return result;
+    } // method readRecord
+
+} // class XrfFile
+
 /**
  * Leader of the MST-file record.
  */
@@ -3832,7 +4030,8 @@ struct MstLeader
     /// Compute the offset of previous version of the record.
     pure long previousOffset() const nothrow {
         return ((cast(long)previousHigh) << 32) + (cast(long)previousLow);
-    }
+    } // method previousOffset
+
 } // struct MstLeader
 
 /**
@@ -3915,7 +4114,7 @@ struct MstControlRecord
 /**
  * Encapsulates MST-file.
  */
-class MstFile
+export class MstFile
 {
     private File file;
     MstControlRecord control; /// Control record.
