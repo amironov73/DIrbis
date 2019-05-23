@@ -2279,9 +2279,58 @@ export final class ServerStat
 //==================================================================
 
 /**
+ * Statement of global correction.
+ */
+export final class GblStatement
+{
+    string command; /// Command, e. g. ADD or DEL.
+    string parameter1; /// First parameter, e. g. field specification.
+    string parameter2; /// Second parameter, e. g. repeat specification.
+    string format1; /// First format, e. g. expression to search.
+    string format2; /// Second format, e. g. value for replacement.
+
+    /**
+     * Encode the statement.
+     */
+    pure string encode(string delimiter=IRBIS_DELIMITER) const {
+        return command ~ delimiter
+            ~ parameter1 ~ delimiter
+            ~ parameter2 ~ delimiter
+            ~ format1 ~ delimiter
+            ~ format2 ~ delimiter;
+    } // method encode
+
+    pure override string toString() const {
+        return encode("\n");
+    } // method toString
+
+} // class GblStatement
+
+/**
+ * Settings for global correction.
+ */
+export final class GblSettings
+{
+    bool actualize; /// Actualize records?
+    bool autoin; /// Run autoin.gbl?
+    string database; /// Database name.
+    string filename; /// File name.
+    int firstRecord; /// MFN of first record.
+    bool formalControl; /// Apply formal control?
+    int maxMfn; /// Maximal MFN.
+    int[] mfnList; /// List of MFN to process.
+    int minMfn; /// Minimal MFN.
+    int numberOfRecords; /// Number of records to process.
+    string searchExpression; /// Search expression.
+    GblStatement[] statements; /// Slice of statements.
+}
+
+//==================================================================
+
+/**
  * Client query encoder.
  */
-struct ClientQuery
+export struct ClientQuery
 {
     private OutBuffer _buffer;
 
@@ -2390,7 +2439,7 @@ struct ClientQuery
 /**
  * Server response decoder.
  */
-struct ServerResponse
+export struct ServerResponse
 {
     private bool _ok;
     private ubyte[] _buffer;
@@ -3004,6 +3053,59 @@ export final class Connection
         result = UserInfo.parse(lines);
         return result;
     } // method getUserList
+
+    /**
+     * Global correction.
+     */
+    string[] globalCorrection(GblSettings settings) {
+        string[] result;
+
+        if (!connected)
+            return result;
+
+        const db = pickOne(settings.database, this.database);
+        auto query = ClientQuery(this, "5");
+        query.addAnsi(db).newLine;
+        query.add(settings.actualize).newLine;
+        if (!settings.filename.empty) {
+            query.addAnsi("@" ~ settings.filename).newLine;
+        }
+        else {
+            auto encoded = new OutBuffer();
+            encoded.write("!0");
+            encoded.write(IRBIS_DELIMITER);
+            foreach (statement; settings.statements)
+                encoded.write(statement.encode);
+            encoded.write(IRBIS_DELIMITER);
+            query.addUtf(encoded.toString).newLine;
+        }
+        query.addAnsi(settings.searchExpression).newLine; // ???
+        query.add(settings.firstRecord).newLine;
+        query.add(settings.numberOfRecords).newLine;
+        if (settings.mfnList.empty) {
+            const count = settings.maxMfn - settings.minMfn + 1;
+            query.add(count).newLine;
+            for (int mfn = settings.minMfn; mfn < settings.maxMfn; mfn++)
+                query.add(mfn).newLine;
+        }
+        else {
+            query.add(settings.mfnList.length).newLine;
+            foreach (mfn; settings.mfnList)
+                query.add(mfn).newLine;
+        }
+        if (!settings.formalControl)
+            query.addUtf("*").newLine;
+        if (!settings.autoin)
+            query.addUtf("&").newLine;
+
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode)
+            return result;
+
+        result = response.readRemainingAnsiLines;
+
+        return result;
+    } // method globalCorrection
 
     /**
      * List server databases.
