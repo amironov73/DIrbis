@@ -75,3 +75,11 @@ void main() {
     }    
 }
 ```
+
+#### Documentation (in russian)
+
+* [**Общее описание**](documentation/chapter1.md)
+* [**Connection**](documentation/chapter2.md)
+* [**MarcRecord, RecordField и SubField**](documentation/chapter3.md)
+* [**Прочие (вспомогательные) структуры и функции**](documentation/chapter4.md)
+
