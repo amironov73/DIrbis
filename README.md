@@ -4,8 +4,8 @@ ManagedClient ported to D language
 
 Currently supporting:
 
-* DMD 2.082
-* 32-bit and 64-bit Windows
+* DMD 2.082 and higher
+* 32-bit and 64-bit Windows and Linux
 
 ### Build status
 
@@ -78,8 +78,8 @@ void main() {
 
 #### Documentation (in russian)
 
-* [**Общее описание**](documentation/chapter1.md)
-* [**Connection**](documentation/chapter2.md)
-* [**MarcRecord, RecordField и SubField**](documentation/chapter3.md)
-* [**Прочие (вспомогательные) структуры и функции**](documentation/chapter4.md)
+* [**РћР±С‰РµРµ РѕРїРёСЃР°РЅРёРµ**](documentation/chapter1.md)
+* [**РљР»Р°СЃСЃ Connection**](documentation/chapter2.md)
+* [**MarcRecord, RecordField Рё SubField**](documentation/chapter3.md)
+* [**РџСЂРѕС‡РёРµ (РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ) РєР»Р°СЃСЃС‹ Рё С„СѓРЅРєС†РёРё**](documentation/chapter4.md)
 

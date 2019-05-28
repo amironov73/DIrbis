@@ -29,7 +29,7 @@ void main() {
     client.noOp;
 
     auto serverVersion = client.getServerVersion;
-    writeln("Organization:", serverVersion.organization);
+    writeln("Organization=", serverVersion.organization);
 
     auto stat = client.getServerStat;
     write(stat);

@@ -1,5 +1,5 @@
 @echo off
 
-dub
+dub build
 
 :DONE

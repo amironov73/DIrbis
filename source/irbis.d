@@ -2681,6 +2681,13 @@ export final class Connection
         _connected = false;
     } // constructor
 
+    /// Constructor.
+    this(string connectionString) {
+        this();
+        parseConnectionString(connectionString);
+        connect;
+    } // constructor
+
     ~this() {
         disconnect();
     } // destructor
@@ -3089,7 +3096,7 @@ export final class Connection
                 query.add(mfn).newLine;
         }
         else {
-            query.add(settings.mfnList.length).newLine;
+            query.add(cast(int)settings.mfnList.length).newLine;
             foreach (mfn; settings.mfnList)
                 query.add(mfn).newLine;
         }
