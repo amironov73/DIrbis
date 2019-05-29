@@ -241,7 +241,7 @@ unittest {
 }
 
 /// Fast parse integer number.
-pure int parseInt(ubyte[] text) nothrow {
+pure int parseInt(scope ubyte[] text) nothrow {
     int result = 0;
     foreach(c; text)
         result = result * 10 + c - 48;
@@ -257,7 +257,7 @@ unittest {
 }
 
 /// Fast parse integer number.
-export pure int parseInt(string text) nothrow {
+export pure int parseInt(scope string text) nothrow {
     int result = 0;
     foreach(c; text)
         result = result * 10 + c - 48;
@@ -442,7 +442,7 @@ unittest {
 /**
  * Get error description by the code.
  */
-export pure string describeError(int code) nothrow {
+export pure string describeError(scope int code) nothrow {
     if (code >= 0)
         return "No error";
 
@@ -559,6 +559,72 @@ export class IrbisException : Exception {
 //==================================================================
 
 /**
+ * Text encoding.
+ */
+export abstract class Encoding
+{
+    /**
+     * Encode the text.
+     */
+    abstract ubyte[] encode(string text);
+
+    /**
+     * Decode the buffer.
+     */
+    abstract string decode(const ubyte[] buffer);
+
+    private static AnsiEncoding _ansi;
+    private static UtfEncoding _utf;
+
+    static AnsiEncoding ansi() {
+        if (_ansi is null)
+            _ansi = new AnsiEncoding;
+        return _ansi;
+    } // method ansi
+
+    static UtfEncoding utf() {
+        if (_utf is null)
+            _utf = new UtfEncoding;
+        return _utf;
+    } // method utf
+
+} // class Encoding
+
+/**
+ * ANSI encoding (windows code page 1251).
+ */
+export final class AnsiEncoding : Encoding
+{
+    override {
+        ubyte[] encode(string text) {
+            return toAnsi(text);
+        } // encode
+
+        string decode(const ubyte[] buffer) {
+            return fromAnsi(buffer);
+        } // decode
+    } // override
+} // class Win1251Encoding
+
+/**
+ * UTF-8 encoding.
+ */
+export final class UtfEncoding : Encoding
+{
+    override {
+        ubyte[] encode(string text) {
+            return toUtf(text);
+        } // encode
+
+        string decode(const ubyte[] buffer) {
+            return fromUtf(buffer);
+        } // decode
+    } // override
+} // class UtfEncoding
+
+//==================================================================
+
+/**
  * Subfield consist of a code and value.
  */
 export final class SubField
@@ -573,7 +639,7 @@ export final class SubField
 
     /// Test for default constructor
     unittest {
-        auto subfield = new SubField();
+        auto subfield = new SubField;
         assert(subfield.code == char.init);
         assert(subfield.value is null);
     } // unittest
@@ -601,7 +667,7 @@ export final class SubField
     /// Test for clone
     unittest {
         const first = new SubField('a', "SubA");
-        const second = first.clone();
+        const second = first.clone;
         assert(first.code == second.code);
         assert(first.value == second.value);
     } // unittest
@@ -613,12 +679,12 @@ export final class SubField
         in (!text.empty)
     {
         code = text[0];
-        value = text[1..$];
+        value = text[1..$]; // TODO: dup?
     } // method decode
 
     /// Test for decode
     unittest {
-        auto subfield = new SubField();
+        auto subfield = new SubField;
         subfield.decode("aSubA");
         assert(subfield.code == 'a');
         assert(subfield.value == "SubA");
@@ -658,7 +724,6 @@ export final class RecordField
     this(int tag=0, string value="") {
         this.tag = tag;
         this.value = value;
-        this.subfields = new SubField[0];
     } // constructor
 
     /// Test for constructor
@@ -666,26 +731,34 @@ export final class RecordField
         auto field = new RecordField(100, "Value");
         assert(field.tag == 100);
         assert(field.value == "Value");
+        assert(field.subfields.empty);
     } // unittest
 
     /**
      * Append subfield with specified code and value.
      */
-    RecordField append(char code, string value)
-    {
+    RecordField append(char code, string value) {
         auto subfield = new SubField(code, value);
         subfields ~= subfield;
         return this;
-    } // method add
+    } // method append
 
     /// Test for append
     unittest {
-        auto field = new RecordField();
+        auto field = new RecordField;
         field.append('a', "SubA");
         assert(field.subfields.length == 1);
         assert(field.subfields[0].code == 'a');
         assert(field.subfields[0].value == "SubA");
     } // unittest
+
+    /**
+     * Append subfield with specified code and value
+     * if value is non-empty.
+     */
+    RecordField adppendNonEmpty(char code, string value) {
+        return value.empty ? this : append(code, value);
+    } // method appendNonEmpty
 
     /**
      * Clear the field (remove the value and all the subfields).
@@ -698,9 +771,9 @@ export final class RecordField
 
     /// Test for clear
     unittest {
-        auto field = new RecordField();
+        auto field = new RecordField;
         field.append('a', "SubA");
-        field.clear();
+        field.clear;
         assert(field.subfields.length == 0);
     } // unittest
 
@@ -821,7 +894,7 @@ export final class RecordField
     /**
      * Get first subfield with given code.
      */
-    SubField getFirstSubField(char code) {
+    pure SubField getFirstSubField(char code) {
         foreach (subfield; subfields)
             if (sameChar(subfield.code, code))
                 return subfield;
@@ -831,12 +904,33 @@ export final class RecordField
     /**
      * Get value of first subfield with given code.
      */
-    string getFirstSubFieldValue(char code) {
+    pure string getFirstSubFieldValue(char code) {
         foreach (subfield; subfields)
             if (sameChar(subfield.code, code))
                 return subfield.value;
         return null;
     } // method getFirstFieldValue
+
+    /**
+     * Computes value for ^*.
+     */
+    pure string getValueOrFirstSubField() {
+        auto result = value;
+        if (result.empty)
+            if (!subfields.empty)
+                result = subfields[0].value;
+        return result;
+    } // method getValueOrFirstSubField
+
+    /**
+     * Do we have any subfield with given code?
+     */
+    pure bool haveSubField(char code) const {
+        foreach (subfield; subfields)
+            if (sameChar(subfield.code, code))
+                return true;
+        return false;
+    }
 
     /**
      * Insert the subfield at specified position.
@@ -858,9 +952,41 @@ export final class RecordField
      * Remove all subfields with specified code.
      */
     RecordField removeSubField(char code) {
-        // TODO implement
+        size_t index = 0;
+        while (index < subfields.length) {
+            if (sameChar(subfields[index].code, code))
+                removeAt (index);
+            else
+                index++;
+        }
         return this;
     } // method removeSubField
+
+    /**
+     * Replace value for subfields with specified code.
+     */
+    RecordField replaceSubField(char code, string oldValue, string newValue) {
+        foreach(subfield; subfields)
+            if (sameChar(subfield.code, code)
+                && sameString(subfield.value, oldValue))
+                subfield.value = newValue;
+        return this;
+    } // method replaceSubField
+
+    /**
+     * Set the value of first occurence of the subfield.
+     */
+    RecordField setSubField(char code, string value) {
+        if (value.empty)
+            return removeSubField(code);
+        auto subfield = getFirstSubField(code);
+        if (subfield is null) {
+            subfield = new SubField(code, value);
+            subfields ~= subfield;
+        }
+        subfield.value = value;
+        return this;
+    }
 
     pure override string toString() const {
         auto result = new OutBuffer();
@@ -877,10 +1003,8 @@ export final class RecordField
      */
     pure bool verify() const {
         bool result = (tag != 0) && (!value.empty || !subfields.empty);
-        if (result && !subfields.empty)
-        {
-            foreach (subfield; subfields)
-            {
+        if (result && !subfields.empty) {
+            foreach (subfield; subfields) {
                 result = subfield.verify();
                 if (!result)
                     break;
@@ -1124,8 +1248,7 @@ export final class MarcRecord
      * Reset record state, unbind from database.
      * Fields remains untouched.
      */
-    MarcRecord reset() nothrow
-    {
+    MarcRecord reset() nothrow {
         mfn = 0;
         status = 0;
         versionNumber = 0;
@@ -1133,8 +1256,7 @@ export final class MarcRecord
         return this;
     } // method reset
 
-    pure override string toString() const
-    {
+    pure override string toString() const {
         return encode("\n");
     } // method toString
 
@@ -1172,7 +1294,7 @@ export final class RawRecord
             return false;
 
         versionNumber = parseInt(secondLine[1]);
-        fields = lines[2..$];
+        fields = lines[2..$]; // TODO dup?
 
         return true;
     } // method decode
@@ -1180,9 +1302,9 @@ export final class RawRecord
     /**
      * Determine whether the record is marked as deleted.
      */
-    @property pure bool deleted() const {
+    pure bool deleted() const {
         return (status & 3) != 0;
-    } // method isDeleted
+    } // method deleted
 
     /**
      * Encode to the text representation.
@@ -1197,14 +1319,29 @@ export final class RawRecord
         result.put(to!int(versionNumber));
         result.put(delimiter);
 
-        foreach (field; fields)
-        {
+        foreach (field; fields) {
             result.put(field);
             result.put(delimiter);
         }
 
-        return result.toString();
+        return result.toString;
     } // method encode
+
+    /**
+     * Reset record state, unbind from database.
+     * Fields remains untouched.
+     */
+    RawRecord reset() nothrow {
+        mfn = 0;
+        status = 0;
+        versionNumber = 0;
+        database = "";
+        return this;
+    } // method reset
+
+    pure override string toString() const {
+        return encode("\n");
+    } // method toString
 
 } // class RawRecord
 
@@ -2689,7 +2826,7 @@ export final class Connection
     } // constructor
 
     ~this() {
-        disconnect();
+        disconnect;
     } // destructor
 
     /**
@@ -2710,10 +2847,10 @@ export final class Connection
             return false;
 
         const db = pickOne(database, this.database);
-        auto query = ClientQuery (this, "F");
+        scope auto query = ClientQuery (this, "F");
         query.addAnsi(db).newLine;
         query.add(mfn).newLine;
-        auto response = execute(query);
+        scope auto response = execute(query);
         return response.ok && response.checkReturnCode;
     } // method actualizeRecord
 
@@ -2778,11 +2915,11 @@ export final class Connection
         if (!connected)
             return false;
 
-        auto query = ClientQuery(this, "T");
+        scope auto query = ClientQuery(this, "T");
         query.addAnsi(database).newLine;
         query.addAnsi(description).newLine;
         query.add(cast(int)readerAccess).newLine;
-        auto response = execute(query);
+        scope auto response = execute(query);
         return response.ok && response.checkReturnCode;
     } // method createDatabase
 
@@ -2794,9 +2931,9 @@ export final class Connection
             return false;
 
         auto db = pickOne(database, this.database);
-        auto query = ClientQuery(this, "Z");
+        scope auto query = ClientQuery(this, "Z");
         query.addAnsi(db).newLine;
-        auto response = execute(query);
+        scope auto response = execute(query);
         return response.ok && response.checkReturnCode;
     } // method createDictionary
 
@@ -2809,9 +2946,9 @@ export final class Connection
         if (!connected)
             return false;
 
-        auto query = ClientQuery(this, "W");
+        scope auto query = ClientQuery(this, "W");
         query.addAnsi(database).newLine;
-        auto response = execute(query);
+        scope auto response = execute(query);
         return response.ok && response.checkReturnCode;
     } // method deleteDatabase
 
@@ -2845,7 +2982,7 @@ export final class Connection
         if (!connected)
             return true;
 
-        auto query = ClientQuery(this, "B");
+        scope auto query = ClientQuery(this, "B");
         query.addAnsi(username);
         execute(query);
         _connected = false;
@@ -2855,7 +2992,7 @@ export final class Connection
     /**
      * Execute the query.
      */
-    ServerResponse execute(const ref ClientQuery query) {
+    ServerResponse execute(scope const ref ClientQuery query) {
         lastError = 0;
         auto result = ServerResponse([]);
         try {
@@ -3802,7 +3939,7 @@ export final class Connection
             return true;
 
         const db = pickOne(database, this.database);
-        auto query = ClientQuery(this, "Q");
+        scope auto query = ClientQuery(this, "Q");
         query.addAnsi(db).newLine;
         foreach(mfn; mfnList)
             query.add(mfn).newLine;
@@ -3819,7 +3956,7 @@ export final class Connection
         if (lines.empty)
             return true;
 
-        auto query = ClientQuery(this, "8");
+        scope auto query = ClientQuery(this, "8");
         foreach (line; lines)
             query.addAnsi(line).newLine;
         return execute(query).ok;
@@ -3839,12 +3976,12 @@ export final class Connection
             return 0;
 
         auto db = pickOne(record.database, this.database);
-        auto query = ClientQuery(this, "D");
+        scope auto query = ClientQuery(this, "D");
         query.addAnsi(db).newLine;
         query.add(lockFlag).newLine;
         query.add(actualize).newLine;
         query.addUtf(record.encode).newLine;
-        auto response = execute(query);
+        scope auto response = execute(query);
         if (!response.ok || !response.checkReturnCode)
             return 0;
 
@@ -3866,24 +4003,23 @@ export final class Connection
             return 0;
 
         auto db = pickOne(record.database, this.database);
-        auto query = ClientQuery(this, "D");
+        scope auto query = ClientQuery(this, "D");
         query.addAnsi(db).newLine;
         query.add(lockFlag).newLine;
         query.add(actualize).newLine;
         query.addUtf(record.encode).newLine;
-        auto response = execute(query);
+        scope auto response = execute(query);
         if (!response.ok || !response.checkReturnCode)
             return 0;
 
-        if (!dontParse)
-        {
+        if (!dontParse) {
             record.fields = [];
             auto temp = response.readRemainingUtfLines;
             auto lines = [temp[0]];
             lines ~= split(temp[1], SHORT_DELIMITER);
             record.decode(lines);
             record.database = database;
-        }
+        } // if (!dontParse)
 
         return response.returnCode;
     } // method writeRecord
@@ -3902,32 +4038,28 @@ export final class Connection
         if (!connected || records.empty)
             return false;
 
-        if (records.length == 1)
-        {
+        if (records.length == 1) {
             writeRecord(records[0]);
             return true;
         }
 
-        auto query = ClientQuery(this, "6");
+        scope auto query = ClientQuery(this, "6");
         query.add(lockFlag).newLine;
         query.add(actualize).newLine;
-        foreach (record; records)
-        {
+        foreach (record; records) {
             auto db = pickOne(record.database, this.database);
             query.addUtf(db)
                 .addUtf(IRBIS_DELIMITER)
                 .addUtf(record.encode)
                 .newLine;
         }
-        auto response = execute(query);
+        scope auto response = execute(query);
         if (!response.ok || !response.checkReturnCode)
             return false;
 
-        if (!dontParse)
-        {
+        if (!dontParse) {
             auto lines = response.readRemainingUtfLines;
-            foreach (i, line; lines)
-            {
+            foreach (i, line; lines) {
                 if (line.empty)
                     continue;
                 auto record = records[i];
@@ -3936,7 +4068,7 @@ export final class Connection
                 auto recordLines = irbisToLines(line);
                 record.decode(recordLines);
             }
-        }
+        } // if (!dontParse)
 
         return true;
     } // method writeRecords
@@ -3950,7 +4082,7 @@ export final class Connection
         if (!connected)
             return false;
 
-        auto query = ClientQuery(this, "L");
+        scope auto query = ClientQuery(this, "L");
         query.addAnsi(specification);
         return execute(query).ok;
     } // method writeTextFile
