@@ -364,7 +364,7 @@ updateUserList | Обновление списка пользователей н
 ```d
 GblSettings settings;
 settings.database = "IBIS";
-settings.mfnList = {1, 2, 3};
+settings.mfnList = [1, 2, 3];
 settings.statements = [...];
 auto result = connection.globalCorrection(settings);
 foreach (line; result) {
