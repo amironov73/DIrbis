@@ -4,12 +4,13 @@ ManagedClient ported to D language
 
 Currently supporting:
 
-* DMD 2.082 and higher
+* DMD 2.086 and higher
 * 32-bit and 64-bit Windows and Linux
 
 ### Build status
 
 [![Build status](https://img.shields.io/appveyor/ci/AlexeyMironov/dirbis.svg)](https://ci.appveyor.com/project/AlexeyMironov/dirbis/)
+[![Build status](https://api.travis-ci.org/amironov73/DIrbis.svg)](https://travis-ci.org/amironov73/DIrbis/)
 
 ### Sample program
 
@@ -20,7 +21,7 @@ import irbis;
 void main() {
     // Connect to the server
     auto client = new Connection;
-    client.host = "localhost";
+    client.host = "irbis.host.com";
     client.username = "librarian";
     client.password = "secret";
 

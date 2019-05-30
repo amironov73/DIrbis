@@ -888,7 +888,6 @@ export final class RecordField
         assert(embedded[1].subfields.length == 2);
         assert(embedded[1].subfields[0].code == 'a');
         assert(embedded[1].subfields[0].value == "Ruslan and Ludmila");
-
     } // unittest
 
     /**
@@ -930,7 +929,7 @@ export final class RecordField
             if (sameChar(subfield.code, code))
                 return true;
         return false;
-    }
+    } // method haveSubField
 
     /**
      * Insert the subfield at specified position.
@@ -986,7 +985,7 @@ export final class RecordField
         }
         subfield.value = value;
         return this;
-    }
+    } // method setSubField
 
     pure override string toString() const {
         auto result = new OutBuffer();
@@ -1104,6 +1103,21 @@ export final class MarcRecord
     } // unittest
 
     /**
+     * Create deep clone of the record.
+     */
+    MarcRecord clone() const {
+        auto result = new MarcRecord;
+        result.database = this.database;
+        result.mfn = this.mfn;
+        result.versionNumber = this.versionNumber;
+        result.status = this.status;
+        result.fields.reserve(this.fields.length);
+        foreach(field; fields)
+            result.fields ~= field.clone;
+        return result;
+    } // method clone
+
+    /**
      * Decode the record from the protocol representation.
      */
     void decode(const string[] lines) {
@@ -1120,6 +1134,13 @@ export final class MarcRecord
             }
         }
     } // method decode
+
+    /**
+     * Determine whether the record is marked as deleted.
+     */
+    pure bool deleted() const {
+        return (status & 3) != 0;
+    } // method deleted
 
     /**
      * Encode the record to the protocol representation.
@@ -1222,19 +1243,34 @@ export final class MarcRecord
     } // method getFields
 
     /**
+     * Do we have any field with specified tag?
+     */
+    pure bool haveField(int tag) const {
+        foreach(field; fields)
+            if  (field.tag == tag)
+                return true;
+        return false;
+    } // method haveField
+
+    /**
+     * Do we have any subfield with specified tag and code?
+     */
+    pure bool haveSubField(int tag, char code) const {
+        foreach (field; fields)
+            if (field.tag == tag)
+                foreach (subfield; field.subfields)
+                    if (sameChar(subfield.code, code))
+                        return true;
+        return false;
+    } // method haveSubField
+
+    /**
      * Insert the field at given index.
      */
     MarcRecord insertAt(size_t index, RecordField field) {
         arrayInsert(fields, index, field);
         return this;
-    }
-
-    /**
-     * Determine whether the record is marked as deleted.
-     */
-    @property pure bool deleted() const {
-        return (status & 3) != 0;
-    } // method isDeleted
+    } // method insertAt
 
     /**
      * Remove field at specified index.
@@ -1243,6 +1279,20 @@ export final class MarcRecord
         arrayRemove(fields, index);
         return this;
     } // method removeAt
+
+    /**
+     * Remove all fields with specified tag.
+     */
+    MarcRecord removeField(int tag) {
+        size_t index = 0;
+        while (index < fields.length) {
+            if (fields[index].tag == tag)
+                removeAt (index);
+            else
+                index++;
+        }
+        return this;
+    } // method removeField
 
     /**
      * Reset record state, unbind from database.
@@ -1256,9 +1306,51 @@ export final class MarcRecord
         return this;
     } // method reset
 
+    /**
+     * Set the value of first occurence of the field.
+     */
+    MarcRecord setField(int tag, string value) {
+        if (value.empty)
+            return removeField(tag);
+        auto field = getField(tag);
+        if (field is null) {
+            field = new RecordField(tag, value);
+            fields ~= field;
+        }
+        field.value = value;
+        return this;
+    } // method setField
+
+    /**
+     * Set the value of first occurence of the subfield.
+     */
+    MarcRecord setSubField(int tag, char code, string value) {
+        auto field = getField(tag);
+        if (field is null) {
+            if (value.empty)
+                return this;
+            field = new RecordField(tag, value);
+            fields ~= field;
+        }
+        field.setSubField(code, value);
+        return this;
+    } // method setField
+
     pure override string toString() const {
         return encode("\n");
     } // method toString
+
+    /**
+     * Verify all the fields.
+     */
+    pure bool verify() const {
+        if (fields.empty)
+            return false;
+        foreach (field; fields)
+            if (!field.verify)
+                return false;
+        return true;
+    } // method verify
 
 } // class MarcRecord
 
@@ -1274,6 +1366,28 @@ export final class RawRecord
     int versionNumber; /// Version number
     int status; /// Status.
     string[] fields; /// Slice of fields.
+
+    /**
+     * Append the field.
+     */
+    RawRecord append(int tag, string value) {
+        const text = to!string(tag) ~ "#" ~ value;
+        fields ~= text;
+        return this;
+    } // method append
+
+    /**
+     * Creates deep clone of the record.
+     */
+    RawRecord clone() const {
+        auto result = new RawRecord;
+        result.database = this.database;
+        result.mfn = this.mfn;
+        result.versionNumber = this.versionNumber;
+        result.status = this.status;
+        result.fields = this.fields.dup;
+        return result;
+    } // method clone
 
     /**
      * Decode the text representation.
@@ -1328,6 +1442,22 @@ export final class RawRecord
     } // method encode
 
     /**
+     * Insert the field at given index.
+     */
+    RawRecord insertAt(size_t index, string field) {
+        arrayInsert(fields, index, field);
+        return this;
+    } // method insertAt
+
+    /**
+     * Remove field at specified index.
+     */
+    RawRecord removeAt(size_t index) {
+        arrayRemove(fields, index);
+        return this;
+    } // method removeAt
+
+    /**
      * Reset record state, unbind from database.
      * Fields remains untouched.
      */
@@ -1338,6 +1468,24 @@ export final class RawRecord
         database = "";
         return this;
     } // method reset
+
+    /**
+     * Convert to MarcRecord.
+     */
+    MarcRecord toMarcRecord() const {
+        auto result = new MarcRecord;
+        result.database = this.database;
+        result.mfn = this.mfn;
+        result.status = this.status;
+        result.versionNumber = this.versionNumber;
+        result.fields.reserve(this.fields.length);
+        foreach (line; fields) {
+            auto field = new RecordField;
+            field.decode(line);
+            result.fields ~= field;
+        }
+        return result;
+    } // method toMarcRecord
 
     pure override string toString() const {
         return encode("\n");
@@ -1356,19 +1504,16 @@ export final class MenuEntry
     string comment; /// Comment.
 
     /// Constructor.
-    this()
-    {
+    this() {
     } // constructor
 
     /// Constructor.
-    this(string code, string comment)
-    {
+    this(string code, string comment) {
         this.code = code;
         this.comment = comment;
     } // constructor
 
-    override string toString() const
-    {
+    override string toString() const {
         return code ~ " - " ~ comment;
     } // method toString
 
@@ -1386,8 +1531,7 @@ export final class MenuFile
     /**
      * Add an entry.
      */
-    MenuFile append(string code, string comment)
-    {
+    MenuFile append(string code, string comment) {
         auto entry = new MenuEntry(code, comment);
         entries ~= entry;
         return this;
@@ -1396,8 +1540,7 @@ export final class MenuFile
     /**
      * Clear the menu.
      */
-    MenuFile clear()
-    {
+    MenuFile clear() nothrow {
         entries = [];
         return this;
     } // method clear
@@ -1430,8 +1573,7 @@ export final class MenuFile
     /**
      * Get value.
      */
-    string getValue(string code, string defaultValue="")
-    {
+    string getValue(string code, string defaultValue="") {
         auto entry = getEntry(code);
         if (entry is null)
             return defaultValue;
@@ -1443,8 +1585,7 @@ export final class MenuFile
      */
     void parse(string[] lines)
     {
-        for(int i=0; i < lines.length; i += 2)
-        {
+        for(int i=0; i < lines.length; i += 2) {
             auto code = lines[i];
             if (code.length == 0 || code.startsWith("*****"))
                 break;
@@ -1457,8 +1598,7 @@ export final class MenuFile
     override string toString() const
     {
         auto result = new OutBuffer();
-        foreach(entry; entries)
-        {
+        foreach(entry; entries) {
             result.put(entry.toString());
             result.put("\n");
         }
@@ -1479,8 +1619,7 @@ export final class IniLine
     string key; /// Key string.
     string value; /// Value string
 
-    pure override string toString() const
-    {
+    pure override string toString() const {
         return this.key ~ "=" ~ this.value;
     } // method toString
 
@@ -1511,8 +1650,7 @@ export final class IniSection
      * Get value for specified key.
      * If no entry found, default value used.
      */
-    pure string getValue(string key, string defaultValue="")
-    {
+    pure string getValue(string key, string defaultValue="") {
         auto found = find(key);
         return (found is null) ? defaultValue : found.value;
     }
@@ -1530,15 +1668,11 @@ export final class IniSection
      */
     IniSection setValue(string key, string value) {
         if (value is null)
-        {
             remove(key);
-        }
-        else
-        {
+        else {
             auto item = find(key);
-            if (item is null)
-            {
-                item = new IniLine();
+            if (item is null) {
+                item = new IniLine;
                 lines ~= item;
                 item.key = key;
             }
@@ -1549,14 +1683,14 @@ export final class IniSection
     } // method setValue
 
     pure override string toString() const {
-        auto result = new OutBuffer();
+        auto result = new OutBuffer;
         if (!name.empty) {
             result.put("[");
             result.put(name);
             result.put("]");
         }
         foreach (line; lines) {
-            result.put(line.toString());
+            result.put(line.toString);
             result.put("\n");
         }
         return result.toString();
