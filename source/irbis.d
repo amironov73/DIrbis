@@ -2700,7 +2700,7 @@ export struct TableDefinition
 export final class ClientInfo
 {
     string number; /// Sequential number.
-    string ipAddress; /// Clien IP address.
+    string ipAddress; /// Client IP address.
     string port; /// Port number.
     string name; /// User login.
     string id; /// Client identifier (just unique number).
@@ -2860,30 +2860,26 @@ export struct ClientQuery
     } // constructor
 
     /// Add integer value.
-    ref ClientQuery add(int value)
-    {
+    ref ClientQuery add(int value) {
         auto text = to!string(value);
         return addUtf(text);
     } // method add
 
     /// Add boolean value.
-    ref ClientQuery add(bool value)
-    {
+    ref ClientQuery add(bool value) {
         auto text = value ? "1" : "0";
         return addUtf(text);
     } // method add
 
     /// Add text in ANSI encoding.
-    ref ClientQuery addAnsi(string text)
-    {
+    ref ClientQuery addAnsi(string text) {
         auto bytes = toAnsi(text);
         _buffer.write(bytes);
         return this;
     } // method addAnsi
 
     /// Add format specification
-    bool addFormat(string text)
-    {
+    bool addFormat(string text) {
         const stripped = strip(text);
 
         if (stripped.empty)
@@ -2911,16 +2907,14 @@ export struct ClientQuery
     } // method addFormat
 
     /// Add text in UTF-8 encoding.
-    ref ClientQuery addUtf(string text)
-    {
+    ref ClientQuery addUtf(string text) {
         auto bytes = toUtf(text);
         _buffer.write(bytes);
         return this;
     } // method addUtf
 
     /// Encode the query.
-    ubyte[] encode() const
-    {
+    ubyte[] encode() const {
         auto bytes = _buffer.toBytes();
         auto result = new OutBuffer();
         result.printf("%d\n", bytes.length);
@@ -2929,8 +2923,7 @@ export struct ClientQuery
     } // method encode
 
     /// Add line delimiter symbol.
-    ref ClientQuery newLine()
-    {
+    ref ClientQuery newLine() {
         _buffer.write(cast(byte)10);
         return this;
     } // method newLine
@@ -2961,8 +2954,7 @@ export struct ServerResponse
     @disable this();
 
     /// Constructor.
-    this(ubyte[] buffer)
-    {
+    this(ubyte[] buffer) {
         _ok = !buffer.empty;
         _buffer = buffer;
         _offset=0;
@@ -2983,41 +2975,33 @@ export struct ServerResponse
     } // this
 
     /// Whether all data received?
-    pure bool ok() const nothrow
-    {
+    pure bool ok() const nothrow {
         return _ok;
     }
 
     /// Whether end of response reached?
-    pure bool eof() const nothrow
-    {
+    pure bool eof() const nothrow {
         return _offset >= _buffer.length;
     }
 
     /// Check return code.
-    bool checkReturnCode(int[] allowed ...)
-    {
+    bool checkReturnCode(int[] allowed ...) {
         if (getReturnCode < 0)
             return canFind(allowed, returnCode);
         return true;
     }
 
     /// Get raw line (no encoding applied).
-    ubyte[] getLine()
-    {
+    ubyte[] getLine() {
         if (_offset >= _buffer.length)
             return null;
 
         auto result = new OutBuffer;
-        while (_offset < _buffer.length)
-        {
+        while (_offset < _buffer.length) {
             auto symbol = _buffer[_offset++];
-            if (symbol == 13)
-            {
+            if (symbol == 13) {
                 if (_buffer[_offset] == 10)
-                {
                     _offset++;
-                }
                 break;
             }
             result.write(symbol);
@@ -3027,37 +3011,30 @@ export struct ServerResponse
     } // method getLine
 
     /// Get return code.
-    int getReturnCode()
-    {
+    int getReturnCode() {
         returnCode = readInteger;
         connection.lastError = returnCode;
         return returnCode;
     }
 
     /// Read line in ANSI encoding.
-    string readAnsi()
-    {
+    string readAnsi() {
         return fromAnsi(getLine);
     } // method readAnsi
 
     /// Read integer value
-    int readInteger()
-    {
+    int readInteger() {
         auto line = readUtf;
         auto result = 0;
         if (!line.empty)
-        {
             result = to!int(line);
-        }
         return result;
     } // method readInteger
 
     /// Read remaining lines in ANSI encoding.
-    string[] readRemainingAnsiLines()
-    {
+    string[] readRemainingAnsiLines() {
         string[] result;
-        while (!eof)
-        {
+        while (!eof) {
             auto line = readAnsi;
             result ~= line;
         }
@@ -3065,18 +3042,17 @@ export struct ServerResponse
     } // method readRemainingAnsiLines
 
     /// Read remaining text in ANSI encoding.
-    string readRemainingAnsiText()
-    {
+    string readRemainingAnsiText() {
+        if (eof)
+            return null;
         auto chunk = _buffer[_offset..$];
         return fromAnsi(chunk);
     } // method readRemainingAnsiText
 
     /// Read remaining lines in UTF-8 encoding.
-    string[] readRemainingUtfLines()
-    {
+    string[] readRemainingUtfLines() {
         string[] result;
-        while (!eof)
-        {
+        while (!eof) {
             auto line = readUtf;
             result ~= line;
         }
@@ -3084,15 +3060,15 @@ export struct ServerResponse
     } // method readRemainingUtfLines
 
     /// Read remaining text in UTF-8 encoding.
-    string readRemainingUtfText()
-    {
+    string readRemainingUtfText() {
+        if (eof)
+            return null;
         auto chunk = _buffer[_offset..$];
         return fromUtf(chunk);
     } // method readRemainingUtfText
 
     /// Read line in UTF-8 encoding.
-    string readUtf()
-    {
+    string readUtf() {
         return fromUtf(getLine);
     } // method readUtf
 

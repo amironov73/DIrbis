@@ -105,7 +105,7 @@ subfields | SubField\[\] | Слайс подполей.
 
 **RecordField[] getEmbeddedFields() const** -- получает слайс встроенных полей из данного поля.
 
-**SubField getFirstSubField(char code)** -- возвращает первое вхождение подполя с указанным кодом или `nil`.
+**SubField getFirstSubField(char code)** -- возвращает первое вхождение подполя с указанным кодом или `null`.
 
 **string getFirstSubFieldValue(char code)** -- возвращает значение первого вхождения подполя с указанным кодом или пустую строку.
 
@@ -121,7 +121,7 @@ subfields | SubField\[\] | Слайс подполей.
 
 **RecordField replaceSubField(char code, string oldValue, string newValue)** -- заменяет значение  подполя.
 
-**RecordField setSubField(char code, string value)** -- устанавливает значение первого повторения подполя с указанным кодом. Если value==nil, подполе удаляется.
+**RecordField setSubField(char code, string value)** -- устанавливает значение первого повторения подполя с указанным кодом. Если `value==null`, подполе удаляется.
 
 **string toString() const** -- возвращает строковое представление данного поля.
 

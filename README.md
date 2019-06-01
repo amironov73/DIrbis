@@ -4,7 +4,7 @@ ManagedClient ported to D language
 
 Currently supporting:
 
-* DMD 2.086 and higher
+* DMD 2.082 and higher
 * 32-bit and 64-bit Windows and Linux
 
 ### Build status

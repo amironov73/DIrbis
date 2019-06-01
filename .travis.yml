@@ -4,9 +4,6 @@ language: d
 
 d: dmd
 
-install:
-  - dmd --version
-
 script:
   - dub build
   - dub test
