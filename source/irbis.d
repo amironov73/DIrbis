@@ -857,6 +857,100 @@ export final class TextNavigator
 //==================================================================
 
 /**
+ * Part of NumberText (see).
+ */
+struct NumberChunk
+{
+    string prefix; /// Prefix.
+    long value; /// Numeric value.
+    int length; /// Length.
+    bool haveValue; /// Have value?
+} // struct NumberChunk
+
+//==================================================================
+
+/**
+ * Text with numbers.
+ */
+export final class NumberText
+{
+    private NumberChunk[] chunks; /// Slice of chunks.
+    private ref NumberChunk lastChunk() {
+        return chunks[$-1];
+    }
+
+    /// Constructor.
+    this() {
+    } // constructor
+
+    /// Test for default constructor
+    unittest {
+        auto number = new NumberText;
+        assert(number.empty);
+        assert(number.length == 0);
+    } // unittest
+
+    /// Constructor.
+    this(string text) {
+    } // constructor
+
+    /// Append chunk.
+    NumberText append
+        (
+            string prefix="",
+            bool haveValue=true,
+            long value=0,
+            int length=0
+        )
+    {
+        NumberChunk chunk;
+        chunk.prefix = prefix;
+        chunk.haveValue = haveValue;
+        chunk.value = value;
+        chunk.length = length;
+        chunks ~= chunk;
+        return this;
+    } // method append
+
+    /// Whether the number is empty?
+    pure bool empty() const {
+        return chunks.empty;
+    } // method empty
+
+    /// Get prefix for index.
+    pure string getPrefix(int index) const {
+        return null;
+    } // method getPrefix
+
+    /// Get value for index.
+    pure long getValue(int index) const {
+        return 0;
+    } // method getValue
+
+    /// Increment the last chunk.
+    NumberText increment(int delta=1) {
+        return this;
+    } // method increment
+
+    /// Increment the given chunk.
+    NumberText increment(int index, int delta=1) {
+        return this;
+    } // method increment
+
+    /// Get the length.
+    pure int length() const {
+        return cast(int)(chunks.length);
+    } // method length
+
+    override string toString() const {
+        return null;
+    } // method toString
+
+} // class NumberText
+
+//==================================================================
+
+/**
  * Subfield consist of a code and value.
  */
 export final class SubField
@@ -1780,9 +1874,8 @@ export final class MenuFile
     /**
      * Get entry.
      */
-    MenuEntry getEntry(string code)
-    {
-        if (entries.length == 0)
+    MenuEntry getEntry(string code) {
+        if (entries.empty)
             return null;
 
         foreach (entry; entries)
@@ -1815,8 +1908,7 @@ export final class MenuFile
     /**
      * Parse text representation.
      */
-    void parse(string[] lines)
-    {
+    void parse(string[] lines) {
         for(int i=0; i < lines.length; i += 2) {
             auto code = lines[i];
             if (code.length == 0 || code.startsWith("*****"))
@@ -1827,8 +1919,7 @@ export final class MenuFile
         }
     } // method parse
 
-    override string toString() const
-    {
+    override string toString() const {
         auto result = new OutBuffer();
         foreach(entry; entries) {
             result.put(entry.toString());
@@ -2713,8 +2804,7 @@ export final class ClientInfo
     /**
      * Parse the server response.
      */
-    void parse(string[] lines)
-    {
+    void parse(string[] lines) {
         number = lines[0];
         ipAddress = lines[1];
         port = lines[2];
@@ -2727,8 +2817,7 @@ export final class ClientInfo
         commandNumber = lines[9];
     } // method parse
 
-    pure override string toString() const
-    {
+    pure override string toString() const {
         return ipAddress;
     } // method toString
 } // class ClientInfo
@@ -2747,30 +2836,27 @@ export final class ServerStat
     /**
      * Parse the server response.
      */
-    void parse(string[] lines)
-    {
+    void parse(string[] lines) {
         totalCommandCount = parseInt(lines[0]);
         clientCount = parseInt(lines[1]);
         auto linesPerClient = parseInt(lines[2]);
         lines = lines[3..$];
         for(int i = 0; i < clientCount; i++)
         {
-            auto client = new ClientInfo();
+            auto client = new ClientInfo;
             client.parse(lines);
             runningClients ~= client;
             lines = lines[linesPerClient + 1..$];
         } // for
     } // method parse
 
-    pure override string toString() const
-    {
-        auto result = new OutBuffer();
+    pure override string toString() const {
+        auto result = new OutBuffer;
         result.put(to!string(totalCommandCount));
         result.put("\n");
         result.put(to!string(clientCount));
         result.put("\n8\n");
-        foreach(client; runningClients)
-        {
+        foreach(client; runningClients) {
             result.put(client.toString());
             result.put("\n");
         }
@@ -2882,23 +2968,17 @@ export struct ClientQuery
     bool addFormat(string text) {
         const stripped = strip(text);
 
-        if (stripped.empty)
-        {
+        if (stripped.empty) {
             newLine;
             return false;
         }
 
         auto prepared = prepareFormat(text);
-        if (prepared[0] == '@')
-        {
+        if (prepared[0] == '@') 
             addAnsi(prepared);
-        }
         else if (prepared[0] == '!')
-        {
             addUtf(prepared);
-        }
-        else
-        {
+        else {
             addUtf("!");
             addUtf(prepared);
         }
