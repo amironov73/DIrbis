@@ -31,3 +31,6 @@ classes/
 # Visual D
 .vs/
 Debug/
+
+# Visual Studio Code
+./vscode
