@@ -5,5 +5,18 @@
 	"copyright": "Copyright © 2019, Alexey Mironov",
 	"description": "A minimal D application.",
 	"license": "MIT",
-	"name": "irbis"
+	"name": "irbis",
+
+        "configurations": [
+		{
+			"name": "online",
+			"targetType": "executable",
+			"mainSourceFile": "source/app.d"
+		},
+		{
+			"name": "library",
+			"targetType": "library",
+			"excludedSourceFiles": ["source/app.d"]
+		}
+	]
 }

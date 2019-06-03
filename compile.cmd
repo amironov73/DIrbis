@@ -1,6 +1,6 @@
 @echo off
 
-dub build
+dub build -c library
 dub test
 
 :DONE
