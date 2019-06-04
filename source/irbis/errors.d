@@ -9,7 +9,7 @@ module irbis.errors;
 /**
  * Get error description by the code.
  */
-export pure string describeError(scope int code) nothrow {
+pure string describeError(scope int code) nothrow {
     if (code >= 0)
         return "No error";
 
@@ -78,7 +78,7 @@ unittest {
 /**
  * IRBIS-specific errors.
  */
-export class IrbisException : Exception {
+class IrbisException : Exception {
     int code; /// Code.
 
     /// Constructor.

@@ -19,14 +19,14 @@ import std.outbuffer;
 
 import irbis.constants, irbis.utils, irbis.records, irbis.menus;
 import irbis.tree, irbis.ini, irbis.structures, irbis.errors;
-import irbis.spec;
+import irbis.spec, irbis.stat;
 
 //==================================================================
 
 /**
  * Client query encoder.
  */
-export struct ClientQuery
+struct ClientQuery
 {
     private OutBuffer _buffer;
 
@@ -122,7 +122,7 @@ export struct ClientQuery
 /**
  * Server response decoder.
  */
-export struct ServerResponse
+struct ServerResponse
 {
     private bool _ok;
     private ubyte[] _buffer;
@@ -322,7 +322,7 @@ final class Tcp4ClientSocket : ClientSocket
 /**
  * IRBIS-sever connection.
  */
-export final class Connection
+final class Connection
 {
     private bool _connected;
 
@@ -656,6 +656,32 @@ export final class Connection
         result.parse(lines);
         return result;
     } // method getDatabaseInfo
+
+    /**
+     * Get some database statistics
+     */
+    string getDatabaseStat(const StatDefinition definition) {
+        if (!connected)
+            return null;
+
+        auto db = pickOne(database, this.database);
+        scope auto query = ClientQuery(this, "2");
+        query.addAnsi(db).newLine;
+        foreach(item; definition.items)
+            query.addAnsi(item.toString).newLine;
+        query.addUtf(definition.searchExpression).newLine;
+        query.add(definition.minMfn).newLine;
+        query.add(definition.maxMfn).newLine;
+        query.addUtf(definition.sequentialSearch).newLine;
+        foreach(mfn; definition.mfnList)
+            query.add(mfn).addAnsi(",");
+        query.newLine;
+        scope auto response = execute(query);
+        if (!response.ok)
+            return null;
+        auto result = "{\\rtf1 " ~ response.readRemainingUtfText ~ "}";
+        return result;
+    }
 
     /**
      * Get the maximal MFN for the database.

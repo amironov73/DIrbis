@@ -22,7 +22,7 @@ import std.outbuffer;
 /**
  * Simple text navigation.
  */
-export final class TextNavigator
+final class TextNavigator
 {
     int _column, _line, _position;
     private immutable int _length;
@@ -267,7 +267,7 @@ struct NumberChunk
 /**
  * Text with numbers.
  */
-export final class NumberText
+final class NumberText
 {
     private NumberChunk[] chunks; /// Slice of chunks.
     private ref NumberChunk lastChunk() {

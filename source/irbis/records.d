@@ -24,7 +24,7 @@ import irbis.constants, irbis.utils;
 /**
  * Subfield consist of a code and value.
  */
-export final class SubField
+final class SubField
 {
     char code; /// One-symbol code of the subfield.
     string value; /// String value of the subfield.
@@ -111,7 +111,7 @@ export final class SubField
 /**
  * Field consist of a value and subfields.
  */
-export final class RecordField
+final class RecordField
 {
     int tag; /// Numerical tag of the field.
     string value; /// String value of the field.
@@ -429,7 +429,7 @@ export final class RecordField
 /**
  * Record consist of fields.
  */
-export final class MarcRecord
+final class MarcRecord
 {
     string database; /// Database name
     int mfn; /// Masterfile number
@@ -756,7 +756,7 @@ export final class MarcRecord
 /**
  * Half-parsed record.
  */
-export final class RawRecord
+final class RawRecord
 {
     string database; /// Database name.
     int mfn; /// Masterfile number

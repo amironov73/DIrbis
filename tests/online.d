@@ -161,6 +161,20 @@ void main() {
         writeln;
     }
 
+    // Database stat
+    {
+        auto item = StatItem("v200^a", 10, 100, SORT_ASCENDING);
+        auto definition = new StatDefinition;
+        definition.database = "IBIS";
+        definition.searchExpression = `"T=A$"`;
+        definition.items ~= item;
+        auto text = client.getDatabaseStat(definition);
+        auto fname = std.file.tempDir.buildPath("stat.rtf");
+        writeln(fname);
+        writeln(text);
+        std.file.write(fname, toAnsi(text));
+    }
+
     // read binary file from the server
     {
         auto spec = FileSpecification.system("logo.gif");

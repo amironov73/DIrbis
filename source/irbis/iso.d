@@ -67,7 +67,7 @@ private void decodeField(RecordField field, string bodyText) {
 /**
  * Read ISO2709 record from the file.
  */
-export MarcRecord readIsoRecord(File file, string function (ubyte[]) decoder) {
+MarcRecord readIsoRecord(File file, string function (ubyte[]) decoder) {
     auto result = new MarcRecord;
     auto marker = file.rawRead(new ubyte[5]);
     if (marker.length != 5)

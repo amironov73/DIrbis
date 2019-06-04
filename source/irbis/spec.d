@@ -24,7 +24,7 @@ import irbis.utils;
 /**
  * Path to file: path.database.filename.
  */
-export struct FileSpecification
+struct FileSpecification
 {
     enum SYSTEM = 0; /// System-wide path.
     enum DATA = 1; /// Place for information about the IRBIS 64 server databases.

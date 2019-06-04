@@ -22,13 +22,13 @@ import irbis.records;
 //==================================================================
 
 /// Export the record in plain text format.
-export void exportPlainText(const MarcRecord record, File file) {
+void exportPlainText(const MarcRecord record, File file) {
     file.write(record.toPlainText);
     file.writeln("*****");
-} // export plainText
+} // exportPlainText
 
 /// Convert the record to plain text format.
-export string toPlainText(const MarcRecord record) {
+string toPlainText(const MarcRecord record) {
     auto result = new OutBuffer();
     foreach (field; record.fields) {
         result.write(to!string(field.tag));

@@ -24,7 +24,7 @@ import irbis.utils;
 /**
  * Two lines in the MNU-file.
  */
-export final class MenuEntry
+final class MenuEntry
 {
     string code; /// Code.
     string comment; /// Comment.
@@ -50,7 +50,7 @@ export final class MenuEntry
 /**
  * MNU-file wrapper.
  */
-export final class MenuFile
+final class MenuFile
 {
     MenuEntry[] entries; /// Slice of entries.
 

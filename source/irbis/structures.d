@@ -24,7 +24,7 @@ import irbis.constants, irbis.utils, irbis.menus;
 /**
  * Information about IRBIS database.
  */
-export final class DatabaseInfo
+final class DatabaseInfo
 {
     string name; /// Database name
     string description; /// Description
@@ -100,7 +100,7 @@ export final class DatabaseInfo
 /**
  * Information about server process.
  */
-export final class ProcessInfo
+final class ProcessInfo
 {
     string number; /// Just sequential number.
     string ipAddress; /// Client IP address.
@@ -158,7 +158,7 @@ export final class ProcessInfo
 /**
  * Information about the IRBIS64 server version.
  */
-export final class VersionInfo
+final class VersionInfo
 {
     string organization; /// License owner organization.
     string serverVersion; /// Server version itself. Example: 64.2008.1
@@ -198,7 +198,7 @@ export final class VersionInfo
  * Information about the registered user of the system
  * (according to client_m.mnu).
  */
-export struct UserInfo
+struct UserInfo
 {
     string number; /// Just sequential number.
     string name; /// User login.
@@ -285,7 +285,7 @@ export struct UserInfo
 /**
  * Parameters for search method.
  */
-export struct SearchParameters
+struct SearchParameters
 {
     string database; /// Database name.
     int firstRecord = 1; /// First record number.
@@ -309,7 +309,7 @@ export struct SearchParameters
  * Information about found record.
  * Used in search method.
  */
-export struct FoundLine
+struct FoundLine
 {
     int mfn; /// Record MFN.
     string description; /// Description (optional).
@@ -393,7 +393,7 @@ export struct FoundLine
 /**
  * Search term info.
  */
-export struct TermInfo
+struct TermInfo
 {
     int count; /// link count
     string text; /// search term text
@@ -434,7 +434,7 @@ export struct TermInfo
 /**
  * Term posting info.
  */
-export struct TermPosting
+struct TermPosting
 {
     int mfn; /// Record MFN.
     int tag; /// Field tag.
@@ -481,7 +481,7 @@ export struct TermPosting
 /**
  * Parameters for readTerms method.
  */
-export struct TermParameters
+struct TermParameters
 {
     string database; /// Database name.
     int numberOfTerms; /// Number of terms to read.
@@ -500,7 +500,7 @@ export struct TermParameters
 /**
  * Parameters for posting reading.
  */
-export struct PostingParameters
+struct PostingParameters
 {
     string database; /// Database name.
     int firstPosting = 1; /// Number of first posting.
@@ -519,7 +519,7 @@ export struct PostingParameters
 /**
  * Data for printTable method.
  */
-export struct TableDefinition
+struct TableDefinition
 {
     string database; /// Database name.
     string table; /// Table file name.
@@ -543,7 +543,7 @@ export struct TableDefinition
  * Information about connected client
  * (not necessarily current client).
  */
-export final class ClientInfo
+final class ClientInfo
 {
     string number; /// Sequential number.
     string ipAddress; /// Client IP address.
@@ -582,7 +582,7 @@ export final class ClientInfo
 /**
  * IRBIS64 server working statistics.
  */
-export final class ServerStat
+final class ServerStat
 {
     ClientInfo[] runningClients; /// Slice of running clients.
     int clientCount; /// Actual client count.
@@ -625,7 +625,7 @@ export final class ServerStat
 /**
  * Statement of global correction.
  */
-export final class GblStatement
+final class GblStatement
 {
     string command; /// Command, e. g. ADD or DEL.
     string parameter1; /// First parameter, e. g. field specification.
@@ -653,7 +653,7 @@ export final class GblStatement
 /**
  * Settings for global correction.
  */
-export final class GblSettings
+final class GblSettings
 {
     bool actualize; /// Actualize records?
     bool autoin; /// Run autoin.gbl?

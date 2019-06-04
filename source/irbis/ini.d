@@ -24,7 +24,7 @@ import irbis.utils;
 /**
  * Line of INI-file. Consist of a key and value.
  */
-export final class IniLine
+final class IniLine
 {
     string key; /// Key string.
     string value; /// Value string
@@ -40,7 +40,7 @@ export final class IniLine
 /**
  * Section of INI-file. Consist of lines (see IniLine).
  */
-export final class IniSection
+final class IniSection
 {
     string name; /// Name of the section.
     IniLine[] lines; /// Lines.
@@ -113,7 +113,7 @@ export final class IniSection
 /**
  * INI-file. Consist of sections (see IniSection).
  */
-export final class IniFile
+final class IniFile
 {
     IniSection[] sections; /// Slice of sections.
 

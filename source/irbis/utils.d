@@ -25,7 +25,7 @@ import irbis.constants;
 //
 
 /// Read 32-bit integer using network byte order.
-export int readIrbisInt32(File file) {
+int readIrbisInt32(File file) {
     ubyte[4] buffer;
     file.rawRead(buffer);
     return cast(int)
@@ -36,7 +36,7 @@ export int readIrbisInt32(File file) {
 } // readIrbisInt32
 
 /// Read 64-bit integer using IRBIS-specific byte order.
-export ulong readIrbisInt64(File file) {
+ulong readIrbisInt64(File file) {
     ubyte[8] buffer;
     file.rawRead(buffer);
     return
@@ -170,7 +170,7 @@ unittest {
 }
 
 /// Fast parse integer number.
-export pure int parseInt(scope string text) nothrow {
+pure int parseInt(scope string text) nothrow {
     int result = 0;
     foreach(c; text)
         result = result * 10 + c - 48;
@@ -311,7 +311,7 @@ unittest {
 } // unittest
 
 /// Prepare the format.
-export string prepareFormat(string text) {
+string prepareFormat(string text) {
     text = removeComments(text);
     const length = text.length;
     if (length == 0)

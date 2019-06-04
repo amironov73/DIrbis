@@ -45,7 +45,7 @@ struct XrfRecord
 /**
  * Encapsulates XRF-file.
  */
-export final class XrfFile
+final class XrfFile
 {
     private File file;
 
@@ -179,7 +179,7 @@ struct MstControlRecord
 /**
  * Encapsulates MST-file.
  */
-export class MstFile
+class MstFile
 {
     private File file;
     MstControlRecord control; /// Control record.

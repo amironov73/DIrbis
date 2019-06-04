@@ -24,7 +24,7 @@ import irbis.utils;
 /**
  * Text encoding.
  */
-export abstract class Encoding
+abstract class Encoding
 {
     /**
      * Encode the text.
@@ -56,7 +56,7 @@ export abstract class Encoding
 /**
  * ANSI encoding (windows code page 1251).
  */
-export final class AnsiEncoding : Encoding
+final class AnsiEncoding : Encoding
 {
     override {
         ubyte[] encode(string text) {
@@ -72,7 +72,7 @@ export final class AnsiEncoding : Encoding
 /**
  * UTF-8 encoding.
  */
-export final class UtfEncoding : Encoding
+final class UtfEncoding : Encoding
 {
     override {
         ubyte[] encode(string text) {

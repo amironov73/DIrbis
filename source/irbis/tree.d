@@ -22,7 +22,7 @@ import std.outbuffer;
 /**
  * Node of TRE-file.
  */
-export final class TreeNode
+final class TreeNode
 {
     TreeNode[] children; /// Slice of children.
     string value; /// Value of the node.
@@ -59,7 +59,7 @@ export final class TreeNode
 /**
  * TRE-file.
  */
-export final class TreeFile
+final class TreeFile
 {
     TreeNode[] roots; /// Slice of root nodes.
 
