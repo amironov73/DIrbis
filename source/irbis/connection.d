@@ -6,7 +6,7 @@
 
 module irbis.connection;
 
-import std.algorithm: canFind, remove;
+import std.algorithm: canFind, find, remove;
 import std.array;
 import std.bitmanip;
 import std.conv;
@@ -17,8 +17,9 @@ import std.stdio;
 import std.string;
 import std.outbuffer;
 
-import irbis.constants, irbis.utils, irbis.records, irbis.menus, 
-       irbis.tree, irbis.ini, irbis.structures, irbis.errors;
+import irbis.constants, irbis.utils, irbis.records, irbis.menus;
+import irbis.tree, irbis.ini, irbis.structures, irbis.errors;
+import irbis.spec;
 
 //==================================================================
 
@@ -80,7 +81,7 @@ export struct ClientQuery
         }
 
         auto prepared = prepareFormat(text);
-        if (prepared[0] == '@') 
+        if (prepared[0] == '@')
             addAnsi(prepared);
         else if (prepared[0] == '!')
             addUtf(prepared);
@@ -145,8 +146,7 @@ export struct ServerResponse
         _buffer = buffer;
         _offset=0;
 
-        if (_ok)
-        {
+        if (_ok) {
             command = readAnsi;
             clientId = readInteger;
             queryId = readInteger;
@@ -176,6 +176,12 @@ export struct ServerResponse
             return canFind(allowed, returnCode);
         return true;
     }
+
+    /// Find the preamble
+    ubyte[] findPreamble(ubyte[] preamble) {
+        auto found = find(_buffer, preamble);
+        return found;
+    } // method findPreamble
 
     /// Get raw line (no encoding applied).
     ubyte[] getLine() {
@@ -271,6 +277,7 @@ class ClientSocket
      * Talk to server and get response.
      */
     abstract ServerResponse talkToServer(const ref ClientQuery query);
+
 } // class ClientSocket
 
 //==================================================================
@@ -283,17 +290,16 @@ final class Tcp4ClientSocket : ClientSocket
     private Connection _connection;
 
     /// Constructor.
-    this(Connection connection)
-    {
+    this(Connection connection) {
         _connection = connection;
-    }
+    } // constructor
 
-    override ServerResponse talkToServer(const ref ClientQuery query)
-    {
+    override ServerResponse talkToServer(const ref ClientQuery query) {
         auto socket = new Socket(AddressFamily.INET, SocketType.STREAM);
         auto address = new InternetAddress(_connection.host, _connection.port);
         socket.connect(address);
         scope(exit) socket.close;
+
         auto outgoing = query.encode;
         socket.send(outgoing);
 
@@ -301,13 +307,11 @@ final class Tcp4ClientSocket : ClientSocket
         auto incoming = new OutBuffer;
         incoming.reserve(2048);
         auto buffer = new ubyte[2056];
-        while((amountRead = socket.receive(buffer)) != 0)
-        {
+        while((amountRead = socket.receive(buffer)) != 0) {
             incoming.write(buffer[0..amountRead]);
         }
 
         auto result = ServerResponse(incoming.toBytes);
-
         return result;
     } // method talkToServer
 
@@ -336,7 +340,7 @@ export final class Connection
     ClientSocket socket; /// Socket.
     int lastError; /// Last error code.
 
-    /// Constructor.
+    /// Default constructor.
     this() {
         host = "127.0.0.1";
         port = 6666;
@@ -424,7 +428,7 @@ export final class Connection
     } // method connect
 
     /// Whether the client is connected to the server?
-    @property pure bool connected() const nothrow {
+    pure bool connected() const nothrow {
         return _connected;
     }
 
@@ -483,8 +487,7 @@ export final class Connection
     /**
      * Delete specified file on the server.
      */
-    void deleteFile(string fileName)
-    {
+    void deleteFile(string fileName) {
         if (!fileName.empty)
             formatRecord("&uf(+9K'" ~ fileName ~"')", 1);
     } // method deleteFile
@@ -794,7 +797,12 @@ export final class Connection
 
         result = DatabaseInfo.parseMenu(menu);
         return result;
-    } // method listDatabase
+    } // method listDatabases
+
+    /// List server databases.
+    DatabaseInfo[] listDatabases(FileSpecification specification) {
+        return listDatabases(specification.toString);
+    } /// method listDatabases
 
     /**
      * List server files by specification.
@@ -958,6 +966,25 @@ export final class Connection
         return result;
     } // method printTable
 
+    /// Read the binary file from the server.
+    ubyte[] readBinaryFile(FileSpecification specification) {
+        if (!connected)
+            return null;
+
+        auto query = ClientQuery(this, "L");
+        specification.isBinary = true;
+        query.addAnsi(specification.toString).newLine();
+        auto response = execute(query);
+        if (!response.ok)
+            return null;
+
+        ubyte[] preamble = cast(ubyte[])"IRBIS_BINARY_DATA";
+        auto result = response.findPreamble(preamble);
+        if (!result.empty)
+            result = result[preamble.length..$];
+        return result;
+    } // method readBinaryFile
+
     /**
      * Read the MNU-file from the server.
      */
@@ -974,6 +1001,11 @@ export final class Connection
         auto result = new MenuFile;
         result.parse(lines);
         return result;
+    } // method readMenuFile
+
+    /// Read the MNU-file from the server.
+    MenuFile readMenuFile(FileSpecification specification) {
+        return readMenuFile(specification.toString);
     } // method readMenuFile
 
     /**
@@ -1155,6 +1187,11 @@ export final class Connection
         auto result = response.readAnsi();
         result = irbisToUnix(result);
         return result;
+    } // method readTextFile
+
+    /// Read the text file from the server.
+    string readTextFile(FileSpecification specification) {
+        return readTextFile(specification.toString);
     } // method readTextFile
 
     /**

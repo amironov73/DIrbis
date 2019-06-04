@@ -11,12 +11,15 @@
 		{
 			"name": "online",
 			"targetType": "executable",
-			"mainSourceFile": "source/app.d"
+			"mainSourceFile": "tests/online.d"
 		},
 		{
 			"name": "library",
-			"targetType": "library",
-			"excludedSourceFiles": ["source/app.d"]
+			"targetType": "library"
+		},
+		{
+			"name": "dynamicLibrary",
+			"targetType": "dynamicLibrary"
 		}
 	]
 }

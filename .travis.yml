@@ -5,5 +5,5 @@ language: d
 d: dmd
 
 script:
-  - dub build
+  - dub build -c library
   - dub test
