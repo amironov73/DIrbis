@@ -153,9 +153,35 @@ final class RecordField
      * Append subfield with specified code and value
      * if value is non-empty.
      */
-    RecordField adppendNonEmpty(char code, string value) {
+    RecordField appendNonEmpty(char code, string value) {
         return value.empty ? this : append(code, value);
     } // method appendNonEmpty
+
+    /// Apply the subfield.
+    RecordField apply(char code, string value) {
+        if (code == '\0')
+            return this;
+        if (value.empty)
+            return removeSubField(code);
+        auto subfield = getFirstSubField(code);
+        if (!subfield) {
+            subfield = new SubField(code, value);
+            subfields ~= subfield;
+        }
+        subfield.value = value;
+        return this;
+    }
+
+    unittest {
+        auto field = new RecordField;
+        field.append('a', "SubA");
+        field.apply('b', "SubB");
+        assert(field.subfields.length == 2);
+        field.apply('a', "SubA2");
+        assert(field.subfields[0].value == "SubA2");
+        field.apply('b', null);
+        assert(field.subfields.length == 1);
+    }
 
     /**
      * Clear the field (remove the value and all the subfields).
