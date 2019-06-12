@@ -157,32 +157,6 @@ final class RecordField
         return value.empty ? this : append(code, value);
     } // method appendNonEmpty
 
-    /// Apply the subfield.
-    RecordField apply(char code, string value) {
-        if (code == '\0')
-            return this;
-        if (value.empty)
-            return removeSubField(code);
-        auto subfield = getFirstSubField(code);
-        if (!subfield) {
-            subfield = new SubField(code, value);
-            subfields ~= subfield;
-        }
-        subfield.value = value;
-        return this;
-    }
-
-    unittest {
-        auto field = new RecordField;
-        field.append('a', "SubA");
-        field.apply('b', "SubB");
-        assert(field.subfields.length == 2);
-        field.apply('a', "SubA2");
-        assert(field.subfields[0].value == "SubA2");
-        field.apply('b', null);
-        assert(field.subfields.length == 1);
-    }
-
     /**
      * Clear the field (remove the value and all the subfields).
      */
@@ -616,7 +590,7 @@ final class MarcRecord
      * Get slice of values of the fields with given tag
      * (or subfield values if code given).
      */
-    pure string[] fma(int tag, char code=0) {
+    pure string[] fma(int tag, char code=0) const {
         string[] result;
         foreach (field; fields) {
             if (field.tag == tag) {

@@ -22,6 +22,75 @@ import irbis.utils, irbis.records;
 //==================================================================
 
 /**
+ * Information about book.
+ */
+final class BookInfo
+{
+    MarcRecord record; /// Record.
+    int amount; /// Count of copies.
+    string firstAuthor; /// First author.
+    string[] authors; /// All authors.
+    string description; /// Bibliographical description.
+
+    /// Document character.
+    string documentCharacter() const {
+        return record.fm(900, 'c');
+    } // method documentCharacter
+
+    /// Document type.
+    string documentType() const {
+        return record.fm(900, 't');
+    } // method documentType
+
+    /// Electronic document?
+    bool electronic() const {
+        // TODO implement
+        return false;
+    } // method electronic
+
+    /// Exemplars
+    ExemplarInfo[] exemplars() const {
+        // TODO implement
+        return [];
+    } // method exemplars
+
+    /// Count of copies.
+    int exemplarCount() const {
+        int result = 0;
+        foreach(exemplar; exemplars) {
+            const status = exemplar.status;
+            if (status != "0" && status != "1"
+                && status != "5" && status != "9")
+                continue;
+
+            auto amount = exemplar.amount.parseInt();
+            if (!amount)
+                amount = 1;
+
+            result += amount;
+        }
+        return result;
+    } // method exemplarCount
+
+    /// Foreign language?
+    bool foreign() const {
+        const langs = languages;
+        if (langs.empty)
+            return false;
+
+        return !sameString(languages[0], "rus");
+    } // method foreign
+
+    /// Slice of languages.
+    string[] languages() const {
+        return record.fma(101);
+    } // method languages
+
+} // class BookInfo
+
+//==================================================================
+
+/**
  * Information about document exemplar (field 910).
  */
 final class ExemplarInfo
@@ -57,33 +126,33 @@ final class ExemplarInfo
     /// Apply to the field.
     void applyTo(RecordField field) {
         field
-            .apply('a', status)
-            .apply('b', number)
-            .apply('c', date)
-            .apply('d', place)
-            .apply('q', collection)
-            .apply('r', shelfIndex)
-            .apply('e', price)
-            .apply('h', barcode)
-            .apply('1', amount)
-            .apply('t', purpose)
-            .apply('=', coefficient)
-            .apply('4', offBalance)
-            .apply('u', ksuNumber1)
-            .apply('y', actNumber1)
-            .apply('f', channel)
-            .apply('2', onHand)
-            .apply('v', actNumber2)
-            .apply('x', writeOff)
-            .apply('k', completion)
-            .apply('w', actNumber3)
-            .apply('z', moving)
-            .apply('m', newPlace)
-            .apply('s', checkDate)
-            .apply('0', checkAmount)
-            .apply('!', realPlace)
-            .apply('p', bindingIndex)
-            .apply('i', bindingNumber);
+            .setSubField('a', status)
+            .setSubField('b', number)
+            .setSubField('c', date)
+            .setSubField('d', place)
+            .setSubField('q', collection)
+            .setSubField('r', shelfIndex)
+            .setSubField('e', price)
+            .setSubField('h', barcode)
+            .setSubField('1', amount)
+            .setSubField('t', purpose)
+            .setSubField('=', coefficient)
+            .setSubField('4', offBalance)
+            .setSubField('u', ksuNumber1)
+            .setSubField('y', actNumber1)
+            .setSubField('f', channel)
+            .setSubField('2', onHand)
+            .setSubField('v', actNumber2)
+            .setSubField('x', writeOff)
+            .setSubField('k', completion)
+            .setSubField('w', actNumber3)
+            .setSubField('z', moving)
+            .setSubField('m', newPlace)
+            .setSubField('s', checkDate)
+            .setSubField('0', checkAmount)
+            .setSubField('!', realPlace)
+            .setSubField('p', bindingIndex)
+            .setSubField('i', bindingNumber);
     } // method applyTo
 
     /// Parse the field.
