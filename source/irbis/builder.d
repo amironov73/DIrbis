@@ -67,6 +67,8 @@ final class Search
         if (canFind(text, ' ')
             || canFind(text, '+')
             || canFind(text, '*')
+            || canFind(text, '^')
+            || canFind(text, '#')
             || canFind(text, '(')
             || canFind(text, ')')
             || canFind(text, '"'))
