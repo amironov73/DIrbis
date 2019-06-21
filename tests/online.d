@@ -185,6 +185,12 @@ void main() {
         std.file.write(fname, fileContent);
     }
 
+    // read term postings for given MFN and prefix
+    {
+        auto postings = client.getRecordPostings(2, "A=$");
+        writeln(postings);
+    }
+
     writeln;
     writeln("THAT'S ALL, FOLKS!");
 }

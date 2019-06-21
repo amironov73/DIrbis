@@ -701,6 +701,27 @@ final class Connection
     } // method getMaxMfn
 
     /**
+     * Get term postings for specified MFN and prefix.
+     */
+    TermPosting[] getRecordPostings(int mfn, string prefix) {
+        TermPosting[] result;
+        if (!connected)
+            return result;
+
+        auto query = ClientQuery(this, "V");
+        query.addAnsi(database).newLine;
+        query.add(mfn).newLine;
+        query.addUtf(prefix).newLine;
+        auto response = execute(query);
+        if (!response.ok || !response.checkReturnCode)
+            return result;
+
+        auto lines = response.readRemainingUtfLines;
+        result = TermPosting.parse(lines);
+        return result;
+    } // method getRecordPostings
+
+    /**
      * Get server running statistics.
      */
     ServerStat getServerStat() {

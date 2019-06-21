@@ -459,7 +459,7 @@ struct TermPosting
             item.tag = parseInt(parts[1]);
             item.occurrence = parseInt(parts[2]);
             item.count = parseInt(parts[3]);
-            item.text = parts[4];
+            item.text = parts.length > 4 ? parts[4] : null;
             result ~= item;
         }
 
