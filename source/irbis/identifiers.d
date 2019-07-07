@@ -20,6 +20,84 @@ import std.uni;
 
 //==================================================================
 
+/// EAN8
+final class Ean8
+{
+    /// Coefficients for check digit calculation.
+    static int[8] coefficients = [3, 1, 3, 1, 3, 1, 3, 1];
+
+    /// Compute check digit
+    static char computeCheckDigit(string digits) {
+        auto sum = 0;
+        for(auto i = 0; i < 7; i++)
+            sum = sum + (digits[i] - '0') * coefficients[i];
+        const result = cast(char)(10 - sum % 10 + '0');
+        return result;
+    } // method computeCheckDigit
+
+    /// Test for computeCheckDigit
+    unittest {
+        assert(computeCheckDigit("46009333") == '3');
+    } // unittest
+
+    /// Check the control digit
+    static bool checkControlDigit(string digits) {
+        auto sum = 0;
+        for(auto i = 0; i < 8; i++)
+            sum = sum + (digits[i] - '0') * coefficients[i];
+        const result = sum % 10 == 0;
+        return result;
+    } // method checkControlDigit
+
+    /// Test for checkControlDigit
+    unittest {
+        assert(checkControlDigit("46009333"));
+        assert(!checkControlDigit("46009332"));
+    } // unittest
+
+} // class Ean8
+
+//==================================================================
+
+/// EAN13
+final class Ean13
+{
+    /// Coefficients for check digit calculation.
+    static int[13] coefficients = [ 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1 ];
+
+    /// Compute check digit.
+    static char computeCheckDigit(string digits) {
+        auto sum = 0;
+        for(auto i = 0; i < 12; i++)
+            sum = sum + (digits[i] - '0') * coefficients[i];
+        const result = cast(char)(10 - sum % 10 + '0');
+        return result;
+    } // method computeCheckDigit
+
+    /// Test for computeControlDigit
+    unittest {
+        assert(computeCheckDigit("4600051000057") == '7');
+    } // unittest
+
+    /// Check the control digit.
+    static bool checkControlDigit(string digits) {
+        auto sum = 0;
+        for(auto i=0; i < 13; i++)
+            sum = sum + (digits[i] - '0') * coefficients[i];
+        const result = sum % 10 == 0;
+        return result;
+    } // method checkControlDigit
+
+    /// Test for checkControlDigit
+    unittest {
+        assert(checkControlDigit("4600051000057"));
+        assert(!checkControlDigit("4600051000056"));
+    } // unittest
+
+} // class Ean13
+
+//==================================================================
+
 /// ISBN
 final class Isbn 
 {
@@ -64,7 +142,7 @@ final class Isbn
         assert(checkControlDigit("5-01-001033-X"));
         assert(!checkControlDigit("5-01-00103X-3"));
         assert(!checkControlDigit("5-01-00A033-X"));
-    }
+    } // unittest
 
     /// Check hyphens.
     static bool checkHyphens(string isbn, char hyphen='-') {
@@ -94,7 +172,7 @@ final class Isbn
         assert(!checkHyphens("502003228X"));
         assert(!checkHyphens("5-02--03157-7"));
         assert(!checkHyphens("5-02--0031577"));
-    }
+    } // unittest
 
     /// Convert the ean to ISBN
     static string fromEan13(string ean) {
@@ -127,6 +205,11 @@ final class Isbn
         return null;
     } // method fromEan13
 
+    /// Test for fromEan13
+    unittest {
+        assert(fromEan13("9785020032064") == "5-020-03206-9");
+    } // unittest
+
     /// Convert the isbn to EAN13.
     static string toEan13(string isbn) {
         if (isbn.length != 13)
@@ -143,10 +226,15 @@ final class Isbn
             if (chr >= '0' && chr <= '9')
                 digits[++j] = chr;
         }
-        digits[12] = 'X';
+        digits[12] = Ean13.computeCheckDigit(digits.idup);
 
         return to!string(digits);
     } // method toEan13
+
+    /// Test for toEan13
+    unittest {
+        assert(toEan13("5-02-003206-9") == "9785020032064");
+    } // unittest
 
     /// Validate the isbn
     static bool validate(string isbn) {
