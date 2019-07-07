@@ -226,7 +226,7 @@ final class Isbn
             if (chr >= '0' && chr <= '9')
                 digits[++j] = chr;
         }
-        digits[12] = Ean13.computeCheckDigit(digits.idup);
+        digits[12] = Ean13.computeCheckDigit(cast(string)digits);
 
         return to!string(digits);
     } // method toEan13
