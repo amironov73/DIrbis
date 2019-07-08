@@ -99,7 +99,7 @@ final class Ean13
 //==================================================================
 
 /// ISBN
-final class Isbn 
+final class Isbn
 {
     /// Check control digit
     static bool checkControlDigit(string isbn, char hyphen='-') {
@@ -148,7 +148,7 @@ final class Isbn
     static bool checkHyphens(string isbn, char hyphen='-') {
         int count = 0;
         const len = isbn.length;
-        if (len < 2 || isbn[0] == hyphen 
+        if (len < 2 || isbn[0] == hyphen
             || isbn[len - 1] == hyphen
             || isbn[len - 2] != hyphen)
             return false;
@@ -242,3 +242,83 @@ final class Isbn
     } // method validate
 
 } // class Isbn
+
+//==================================================================
+
+/// ISSN
+final class Issn
+{
+    /// Coefficients for check digit calculation.
+    static immutable int[8] coefficients = [ 8, 7, 6, 5, 4, 3, 2, 1 ];
+
+    private static int convertDigit(char c) {
+        const result = c == 'X' || c == 'x' ? 10 : c - '0';
+        return result;
+    } // method convertDigit
+
+    private static char convertDigit(int n) {
+        const result = n == 10 ? 'X' : cast(char)('0' + n);
+        return result;
+    } // method convertDigit
+
+    /// Compute check digit.
+    static char computeCheckDigit(string digits) {
+        auto sum = 0;
+        for(auto i = 0; i < 7; i++)
+            sum += convertDigit(digits[i]) * coefficients[i];
+        const result = convertDigit(11 - sum % 11);
+        return result;
+    } // method computeCheckDigit
+
+    /// Test for computeCheckDigit
+    unittest {
+        assert(computeCheckDigit("0033765X") == 'X');
+    } // unittest
+
+    /// Check control digit
+    static bool checkControlDigit(string digits) {
+        if (digits.length != 8)
+            return false;
+
+        auto sum = 0;
+        for(auto i = 0; i < 8; i++)
+            sum += convertDigit(digits[i]) * coefficients[i];
+        const result = sum % 11 == 0;
+        return result;
+    } // method checkControlDigit
+
+    /// Test for
+    unittest {
+        assert(checkControlDigit("0033765X"));
+        assert(!checkControlDigit("00337651"));
+    } // unittest
+
+} // class Issn
+
+//==================================================================
+
+/// International Standard Name Identifier.
+final class Isni
+{
+    /// Compute
+    static char computeCheckDigit(string digits) {
+        auto sum = 0;
+        for(auto i = 0; i < digits.length; i++)
+            sum = (sum + digits[i] - '0') * 2;
+        const remainder = sum % 11;
+        const checkNumber = (12 - remainder) % 11;
+        const result = checkNumber == 10 ? 'X' : checkNumber + '0';
+        return result;
+    } // method computeCheckDigit
+
+    /// Test for computeCheckDigit
+    unittest {
+        assert(computeCheckDigit("000000029534656") == 'X');
+        assert(computeCheckDigit("000000021825009") == '7');
+        assert(computeCheckDigit("000000015109370") == '0');
+        assert(computeCheckDigit("000000021694233") == 'X');
+    } // unittest
+
+} // class Isni
+
+//==================================================================
