@@ -1307,6 +1307,42 @@ final class Connection
         return execute(query).ok;
     } // method restartServer
 
+    /// Read the binary file from the server.
+    ubyte[] requireBinaryFile(FileSpecification specification) {
+        ubyte[] result = readBinaryFile(specification);
+        if (result.empty)
+            throw new IrbisFileNotFoundException(specification);
+        return result;
+    } // method requireBinaryFile
+
+    /**
+     * Read the MNU-file from the server.
+     */
+    MenuFile requireMenuFile(string specification)
+        in (!specification.empty)
+    {
+        if (!connected)
+            throw new IrbisFileNotFoundException(specification);
+
+        auto lines = readTextLines(specification);
+        if (lines.empty)
+            throw new IrbisFileNotFoundException(specification);
+
+        auto result = new MenuFile;
+        result.parse(lines);
+        return result;
+    } // method requireMenuFile
+
+    /**
+     * Read the text file from the server.
+     */
+    string requireTextFile(string specification) {
+        string result = readTextFile(specification);
+        if (result.empty)
+            throw new IrbisFileNotFoundException(specification);
+        return result;
+    } // method requireTextFile
+
     /**
      * Simple search for records (no more than 32k records).
      */

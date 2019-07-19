@@ -33,4 +33,4 @@ classes/
 Debug/
 
 # Visual Studio Code
-./vscode
+.vscode/

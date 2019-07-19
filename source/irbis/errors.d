@@ -6,6 +6,8 @@
 
 module irbis.errors;
 
+import irbis.spec;
+
 /**
  * Get error description by the code.
  */
@@ -86,7 +88,7 @@ class IrbisException : Exception {
         (
             int code,
             string msg = "",
-            string file=__FILE__,
+            string file =__FILE__,
             size_t line = __LINE__
         )
     {
@@ -95,3 +97,39 @@ class IrbisException : Exception {
     } // constructor
 
 } // class IrbisException
+
+//==================================================================
+
+/**
+ * File not found on the server.
+ */
+class IrbisFileNotFoundException : IrbisException {
+    string fileName; /// File name
+
+    /// Constructor.
+    this
+        (
+            string fileName,
+            string msg = "",
+            string file = __FILE__,
+            size_t line = __LINE__
+        )
+    {
+        super(0, msg, file, line);
+        this.fileName = fileName;
+    } // constructor
+
+    /// Constructor.
+    this
+        (
+            FileSpecification specification,
+            string msg = "",
+            string file = __FILE__,
+            size_t line = __LINE__
+        )
+    {
+        super(0, msg, file, line);
+        this.fileName = specification.toString;
+    } // constructor
+
+} // class IrbisFileNotFoundException
