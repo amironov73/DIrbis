@@ -861,7 +861,7 @@ final class Connection
 
         auto query = ClientQuery(this, "!");
         foreach (spec; specifications)
-            if (spec.empty)
+            if (!spec.empty)
                 query.addAnsi(spec).newLine;
         auto response = execute(query);
         if (!response.ok)

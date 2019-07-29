@@ -541,7 +541,7 @@ struct TableDefinition
 
 /**
  * Information about connected client
-Â * (not necessarily current client).
+ * (not necessarily current client).
  */
 final class ClientInfo
 {
