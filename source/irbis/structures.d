@@ -196,7 +196,7 @@ final class VersionInfo
 
 /**
  * Information about the registered user of the system
- * (according to client_m.mnu).
+Â * (according to client_m.mnu).
  */
 struct UserInfo
 {
@@ -541,7 +541,7 @@ struct TableDefinition
 
 /**
  * Information about connected client
-�* (not necessarily current client).
+ * (not necessarily current client).
  */
 final class ClientInfo
 {
