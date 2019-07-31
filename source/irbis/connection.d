@@ -489,7 +489,7 @@ final class Connection
      */
     void deleteFile(string fileName) {
         if (!fileName.empty)
-            formatRecord("&uf(+9K'" ~ fileName ~"')", 1);
+            formatRecord("&uf('+9K" ~ fileName ~"')", 1);
     } // method deleteFile
 
     /**

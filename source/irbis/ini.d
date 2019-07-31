@@ -97,7 +97,7 @@ final class IniSection
         if (!name.empty) {
             result.put("[");
             result.put(name);
-            result.put("]");
+            result.put("]\n");
         }
         foreach (line; lines) {
             result.put(line.toString);

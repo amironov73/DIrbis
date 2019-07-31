@@ -196,7 +196,7 @@ final class VersionInfo
 
 /**
  * Information about the registered user of the system
-Â * (according to client_m.mnu).
+ * (according to client_m.mnu).
  */
 struct UserInfo
 {
