@@ -11,9 +11,11 @@ jobs:
     - uses: actions/checkout@v1
     - name: Install DMD
       run: curl -fsS https://dlang.org/install.sh | bash -s dmd
-    - name: Activate
-      run: source ~/dlang/dmd-2.088.0/activate
     - name: Compile
-      run: dub build -c library
+      run: |
+         source ~/dlang/dmd-2.088.0/activate 
+         dub build -c library
     - name: Test
-      run: dub test
+      run: |
+          source ~/dlang/dmd-2.088.0/activate
+          dub test
